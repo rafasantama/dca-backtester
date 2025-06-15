@@ -1,56 +1,51 @@
 # DCA Backtester
 
-A tool for backtesting Dollar-Cost Averaging (DCA) strategies for cryptocurrencies.
+A powerful Dollar-Cost Averaging (DCA) backtesting tool that helps you analyze and optimize your cryptocurrency investment strategies.
 
 ## Features
 
-- Backtest DCA strategies with customizable parameters
-- Support for multiple cryptocurrencies
-- Dip buying and peak selling strategies
-- Performance metrics (ROI, APY, Sharpe Ratio, Volatility)
-- Interactive web interface using Streamlit
-- AI-powered insights
+- Real-time price data from Binance
+- Sophisticated DCA strategies with dip buying
+- Advanced selling strategies (profit taking, rebalancing, stop loss)
+- Detailed performance metrics and visualizations
+- APY calculations and strategy analysis
+- Trade history tracking
 
-## Installation
+## Setup
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/YOUR_USERNAME/dca-backtester.git
+git clone https://github.com/yourusername/dca-backtester.git
 cd dca-backtester
 ```
 
-2. Install dependencies using Poetry:
+2. Install dependencies:
 ```bash
-poetry install
+pip install -r requirements.txt
+```
+
+3. Run the Streamlit app:
+```bash
+streamlit run dca_backtester/web_app.py
 ```
 
 ## Usage
 
-Run the Streamlit app:
-```bash
-poetry run streamlit run streamlit_app.py
-```
+1. Configure your DCA strategy:
+   - Set investment amount and frequency
+   - Enable/disable dip buying
+   - Configure selling strategy
+   - Set date range for backtesting
 
-## Configuration
+2. Run the backtest and analyze results:
+   - View portfolio performance chart
+   - Check performance metrics (ROI, APY, Sharpe Ratio)
+   - Analyze trade history
+   - Compare strategy performance
 
-The app supports the following cryptocurrencies:
-- Bitcoin (BTC)
-- Ethereum (ETH)
-- Binance Coin (BNB)
-- Solana (SOL)
-- Ripple (XRP)
-- Cardano (ADA)
-- Avalanche (AVAX)
-- Polkadot (DOT)
-- Polygon (MATIC)
-- Chainlink (LINK)
+## Live Demo
 
-## Development
-
-- Python 3.8+
-- Poetry for dependency management
-- Streamlit for the web interface
-- CoinGecko API for price data
+Visit the live demo at: [Your Streamlit App URL]
 
 ## License
 

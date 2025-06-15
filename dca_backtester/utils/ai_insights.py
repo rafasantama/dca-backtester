@@ -1,61 +1,106 @@
-"""AI-powered insights for DCA backtesting results."""
+"""AI-powered insights for backtest results."""
 
-from typing import Dict, Any
+from typing import Dict, List
+import json
+import logging
+from datetime import datetime
 
-def get_ai_insights(results: Dict[str, Any]) -> str:
-    """Generate AI-powered insights from backtest results.
+logger = logging.getLogger(__name__)
+
+def get_ai_insights(results) -> str:
+    """Generate AI insights from backtest results.
 
     Args:
-        results: Dictionary containing backtest results
+        results: BacktestResult object containing backtest results
 
     Returns:
-        String containing insights about the backtest performance
+        Markdown formatted insights
     """
-    # Extract key metrics
-    roi = results.get("roi", 0)
-    apy = results.get("apy", 0)
-    volatility = results.get("volatility", 0)
-    sharpe_ratio = results.get("sharpe_ratio", 0)
-    total_invested = results.get("total_invested", 0)
-    final_value = results.get("final_value", 0)
-    number_of_trades = results.get("number_of_trades", 0)
-    dip_buys = results.get("dip_buys", 0)
-    peak_sells = results.get("peak_sells", 0)
+    try:
+        # Extract key metrics
+        roi = results.roi
+        apy = results.apy
+        sharpe_ratio = results.sharpe_ratio
+        volatility = results.volatility
+        total_invested = results.total_invested
+        final_value = results.final_value
+        number_of_trades = results.number_of_trades
+        dip_buys = results.dip_buys
+        peak_sells = results.peak_sells
 
-    # Generate insights
-    insights = []
+        # Generate insights
+        insights = []
 
-    # Overall performance
-    if roi > 0:
-        insights.append(f"✅ The strategy generated a {roi:.1f}% return on investment.")
-        if apy > 0:
-            insights.append(f"📈 Annualized return (APY) was {apy:.1f}%.")
-    else:
-        insights.append(f"⚠️ The strategy resulted in a {abs(roi):.1f}% loss.")
-        if apy < 0:
-            insights.append(f"📉 Annualized loss was {abs(apy):.1f}%.")
-
-    # Risk analysis
-    if volatility > 0:
-        insights.append(f"📊 Portfolio volatility was {volatility:.1f}%.")
-        if sharpe_ratio > 1:
-            insights.append(f"🌟 Excellent risk-adjusted returns with a Sharpe ratio of {sharpe_ratio:.2f}.")
-        elif sharpe_ratio > 0:
-            insights.append(f"📈 Positive risk-adjusted returns with a Sharpe ratio of {sharpe_ratio:.2f}.")
+        # Overall performance
+        if roi > 0:
+            insights.append(f"📈 **Overall Performance**: The strategy generated a {roi:.1f}% return on investment, "
+                          f"which is equivalent to an annualized return (APY) of {apy:.1f}%.")
         else:
-            insights.append(f"⚠️ Negative risk-adjusted returns with a Sharpe ratio of {sharpe_ratio:.2f}.")
+            insights.append(f"📉 **Overall Performance**: The strategy resulted in a {abs(roi):.1f}% loss, "
+                          f"with an annualized return (APY) of {apy:.1f}%.")
 
-    # Trading activity
-    if number_of_trades > 0:
-        insights.append(f"🔄 Executed {number_of_trades} trades during the period.")
-        if dip_buys > 0:
-            insights.append(f"📥 Made {dip_buys} additional purchases during price dips.")
-        if peak_sells > 0:
-            insights.append(f"📤 Sold {peak_sells} times at peak prices.")
+        # Risk-adjusted returns
+        if sharpe_ratio > 1:
+            insights.append(f"🎯 **Risk-Adjusted Returns**: The strategy shows good risk-adjusted returns "
+                          f"with a Sharpe ratio of {sharpe_ratio:.2f}, indicating strong performance relative to volatility.")
+        elif sharpe_ratio > 0:
+            insights.append(f"⚖️ **Risk-Adjusted Returns**: The strategy shows moderate risk-adjusted returns "
+                          f"with a Sharpe ratio of {sharpe_ratio:.2f}.")
+        else:
+            insights.append(f"⚠️ **Risk-Adjusted Returns**: The strategy shows poor risk-adjusted returns "
+                          f"with a Sharpe ratio of {sharpe_ratio:.2f}, suggesting high risk for the returns achieved.")
 
-    # Investment summary
-    insights.append(f"💰 Total invested: ${total_invested:,.2f}")
-    insights.append(f"💎 Final portfolio value: ${final_value:,.2f}")
+        # Volatility
+        if volatility < 20:
+            insights.append(f"🛡️ **Volatility**: The strategy shows low volatility at {volatility:.1f}%, "
+                          f"indicating relatively stable returns.")
+        elif volatility < 40:
+            insights.append(f"📊 **Volatility**: The strategy shows moderate volatility at {volatility:.1f}%, "
+                          f"which is typical for cryptocurrency investments.")
+        else:
+            insights.append(f"🌊 **Volatility**: The strategy shows high volatility at {volatility:.1f}%, "
+                          f"suggesting significant price swings.")
 
-    # Return formatted insights
-    return "\n".join(insights) 
+        # Trading activity
+        insights.append(f"🔄 **Trading Activity**: The strategy executed {number_of_trades} trades in total, "
+                      f"including {dip_buys} dip buys and {peak_sells} peak sells.")
+
+        # Investment efficiency
+        if total_invested > 0:
+            efficiency = (final_value - total_invested) / total_invested * 100
+            if efficiency > 0:
+                insights.append(f"💰 **Investment Efficiency**: The strategy turned ${total_invested:,.2f} into "
+                              f"${final_value:,.2f}, generating ${final_value - total_invested:,.2f} in profit.")
+            else:
+                insights.append(f"💸 **Investment Efficiency**: The strategy turned ${total_invested:,.2f} into "
+                              f"${final_value:,.2f}, resulting in ${abs(final_value - total_invested):,.2f} in losses.")
+
+        # Strategy effectiveness
+        if dip_buys > 0 and peak_sells > 0:
+            insights.append("🎯 **Strategy Effectiveness**: The combination of dip buying and peak selling "
+                          "shows a balanced approach to market timing.")
+        elif dip_buys > 0:
+            insights.append("📥 **Strategy Effectiveness**: The focus on dip buying shows a value-oriented "
+                          "approach to market entry.")
+        elif peak_sells > 0:
+            insights.append("📤 **Strategy Effectiveness**: The focus on peak selling shows a profit-taking "
+                          "approach to market exit.")
+
+        # Recommendations
+        insights.append("\n### Recommendations")
+        if roi > 0:
+            if volatility > 40:
+                insights.append("1. Consider reducing position sizes to manage volatility")
+                insights.append("2. Look for opportunities to increase dip buying thresholds")
+            if sharpe_ratio < 1:
+                insights.append("3. Consider adjusting the strategy to improve risk-adjusted returns")
+        else:
+            insights.append("1. Review and potentially adjust the investment frequency")
+            insights.append("2. Consider increasing the dip buying threshold")
+            insights.append("3. Evaluate if the selected cryptocurrency is suitable for DCA")
+
+        return "\n\n".join(insights)
+
+    except Exception as e:
+        logger.error(f"Error generating AI insights: {str(e)}")
+        return "Unable to generate insights at this time. Please try again later." 

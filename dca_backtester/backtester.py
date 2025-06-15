@@ -6,8 +6,9 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 from pydantic import BaseModel
 
-from .models import DCAPlan, Frequency
-from .client.coingecko import CoinGeckoClient, PricePoint
+from .models import DCAPlan, Frequency, BacktestResult
+from .client import BaseClient, PricePoint
+from .portfolio import Portfolio
 
 logger = logging.getLogger(__name__)
 
@@ -29,13 +30,19 @@ class BacktestResult(BaseModel):
 class DCABacktester:
     """DCA strategy backtester."""
 
-    def __init__(self, client: CoinGeckoClient):
+    def __init__(self, client: BaseClient):
         """Initialize the backtester.
 
         Args:
             client: CoinGecko API client
         """
         self.client = client
+        self.portfolio_value_history = {
+            "dates": [],
+            "values": [],
+            "invested": [],
+            "prices": []
+        }
 
     def _get_investment_dates(
         self,
@@ -88,179 +95,284 @@ class DCABacktester:
         values = portfolio_value_history["values"]
         dates = portfolio_value_history["dates"]
 
+        if not values or not dates:
+            return 0.0, 0.0, 0.0, 0.0
+
         # Calculate returns
-        returns = np.diff(values) / values[:-1]
+        returns = np.diff(values) / np.maximum(values[:-1], 1e-10)  # Avoid division by zero
         
         # Calculate ROI
         final_value = values[-1]
-        roi = (final_value - total_invested) / total_invested * 100
+        if total_invested <= 0:
+            roi = 0.0
+        else:
+            roi = (final_value - total_invested) / total_invested * 100
 
         # Calculate APY
-        days = (dates[-1] - dates[0]).days
-        apy = (1 + roi/100) ** (365/days) - 1
-        apy = apy * 100  # Convert to percentage
+        days = max((dates[-1] - dates[0]).days, 1)  # Avoid division by zero
+        if roi <= -100:  # If total loss
+            apy = -100.0
+        else:
+            apy = (1 + roi/100) ** (365/days) - 1
+            apy = apy * 100  # Convert to percentage
 
         # Calculate Sharpe Ratio (assuming risk-free rate of 0%)
         if len(returns) > 0:
-            sharpe_ratio = np.mean(returns) / np.std(returns) * np.sqrt(252)  # Annualized
-            volatility = np.std(returns) * np.sqrt(252) * 100  # Annualized volatility in percentage
+            returns_std = np.std(returns)
+            if returns_std > 0:
+                sharpe_ratio = np.mean(returns) / returns_std * np.sqrt(252)  # Annualized
+            else:
+                sharpe_ratio = 0.0
+            volatility = returns_std * np.sqrt(252) * 100  # Annualized volatility in percentage
         else:
-            sharpe_ratio = 0
-            volatility = 0
+            sharpe_ratio = 0.0
+            volatility = 0.0
 
         return roi, apy, sharpe_ratio, volatility
 
+    def _update_portfolio_value_history(self, date: datetime, portfolio_value: float, invested_amount: float, asset_price: float):
+        """Update the portfolio value history with the current values."""
+        self.portfolio_value_history["dates"].append(date)
+        self.portfolio_value_history["values"].append(portfolio_value)
+        self.portfolio_value_history["invested"].append(invested_amount)
+        self.portfolio_value_history["prices"].append(asset_price)
+
+    def _should_invest(self, current_date: datetime, last_investment_date: datetime, frequency: Frequency) -> bool:
+        """Check if it's time to invest based on frequency."""
+        if last_investment_date is None:
+            return True
+        
+        if frequency == Frequency.DAILY:
+            return current_date.date() > last_investment_date.date()
+        elif frequency == Frequency.WEEKLY:
+            return (current_date - last_investment_date).days >= 7
+        elif frequency == Frequency.MONTHLY:
+            return (current_date.year > last_investment_date.year or 
+                   current_date.month > last_investment_date.month)
+        return False
+
+    def _calculate_dip_amount(self, current_price: float, prices: List[PricePoint], dip_threshold: float) -> float:
+        """Calculate additional investment amount for dip buying."""
+        if not prices or len(prices) < 2:
+            return 0.0
+        
+        # Calculate average price from last 30 days
+        recent_prices = [p.price for p in prices[-30:]]
+        avg_price = sum(recent_prices) / len(recent_prices)
+        
+        # Calculate price drop percentage
+        drop_percentage = (avg_price - current_price) / avg_price * 100
+        
+        # If drop exceeds threshold, return double the regular amount
+        if drop_percentage >= dip_threshold:
+            return 2.0  # Double the regular amount
+        return 0.0
+
+    def _calculate_peak_sell_amount(self, current_price: float, prices: List[PricePoint], peak_threshold: float) -> float:
+        """Calculate amount to sell at peak."""
+        if not prices or len(prices) < 2:
+            return 0.0
+        
+        # Calculate average price from last 30 days
+        recent_prices = [p.price for p in prices[-30:]]
+        avg_price = sum(recent_prices) / len(recent_prices)
+        
+        # Calculate price increase percentage
+        increase_percentage = (current_price - avg_price) / avg_price * 100
+        
+        # If increase exceeds threshold, return 50% of portfolio value
+        if increase_percentage >= peak_threshold:
+            return 0.5  # Sell 50% of holdings
+        return 0.0
+
+    def _calculate_apy(self, invested: float, final_value: float, start_date: datetime, end_date: datetime) -> float:
+        """Calculate Annual Percentage Yield."""
+        if invested <= 0:
+            return 0.0
+        
+        # Calculate years between start and end
+        years = (end_date - start_date).days / 365.25
+        
+        if years <= 0:
+            return 0.0
+        
+        # Calculate APY
+        return ((final_value / invested) ** (1 / years) - 1) * 100
+
+    def _calculate_sharpe_ratio(self, values: List[float]) -> float:
+        """Calculate Sharpe ratio for portfolio values."""
+        if len(values) < 2:
+            return 0.0
+        
+        # Calculate daily returns
+        returns = [(values[i] - values[i-1]) / values[i-1] for i in range(1, len(values))]
+        
+        if not returns:
+            return 0.0
+        
+        # Calculate Sharpe ratio (assuming risk-free rate of 0)
+        return np.mean(returns) / np.std(returns) * np.sqrt(252) if np.std(returns) != 0 else 0.0
+
+    def _calculate_volatility(self, values: List[float]) -> float:
+        """Calculate annualized volatility."""
+        if len(values) < 2:
+            return 0.0
+        
+        # Calculate daily returns
+        returns = [(values[i] - values[i-1]) / values[i-1] for i in range(1, len(values))]
+        
+        if not returns:
+            return 0.0
+        
+        # Calculate annualized volatility
+        return np.std(returns) * np.sqrt(252) * 100
+
+    def _calculate_sell_amount(
+        self,
+        current_price: float,
+        prices: List[PricePoint],
+        portfolio: Portfolio,
+        plan: DCAPlan,
+        last_sell_date: Optional[datetime]
+    ) -> float:
+        """Calculate amount to sell based on the selling strategy."""
+        if not plan.enable_sells or not prices or len(prices) < plan.reference_period_days:
+            return 0.0
+
+        # Check cooldown period
+        if last_sell_date and (prices[-1].date - last_sell_date).days < plan.sell_cooldown_days:
+            return 0.0
+
+        # Calculate reference price (average of last N days)
+        recent_prices = [p.price for p in prices[-plan.reference_period_days:]]
+        reference_price = sum(recent_prices) / len(recent_prices)
+        
+        # Calculate price change percentage
+        price_change_pct = (current_price - reference_price) / reference_price * 100
+        
+        # Check stop loss first (if enabled)
+        if plan.stop_loss_threshold > 0 and price_change_pct <= -plan.stop_loss_threshold:
+            return plan.stop_loss_amount / 100.0  # Convert percentage to decimal
+        
+        # Check rebalancing threshold
+        if price_change_pct >= plan.rebalancing_threshold:
+            return plan.rebalancing_amount / 100.0
+        
+        # Check profit taking threshold
+        if price_change_pct >= plan.profit_taking_threshold:
+            return plan.profit_taking_amount / 100.0
+        
+        return 0.0
+
     def run(self, plan: DCAPlan) -> BacktestResult:
-        """Run a DCA backtest.
-
-        Args:
-            plan: DCA strategy plan
-
-        Returns:
-            Backtest results
-
-        Raises:
-            ValueError: If dates are invalid
-            ClientError: If API request fails
-        """
-        # Validate dates
-        start_date = datetime.fromisoformat(plan.start_date)
-        end_date = datetime.fromisoformat(plan.end_date)
-        if start_date >= end_date:
-            raise ValueError("Start date must be before end date")
-
-        # Get historical prices
-        coin_id = self.client.get_coin_id(plan.symbol)
-        prices = self.client.get_historical_prices(coin_id, plan.start_date, plan.end_date)
-
-        # Get investment dates
-        investment_dates = self._get_investment_dates(start_date, end_date, plan.frequency)
-
+        """Run the backtest with the given DCA plan."""
         # Initialize portfolio
-        portfolio = {
-            "total_coins": 0.0,
-            "total_invested": 0.0,
-            "number_of_trades": 0,
-            "dip_buys": 0,
-            "peak_sells": 0,
-            "trades": []
-        }
-
-        # Track portfolio value history
-        portfolio_value_history = {
+        portfolio = Portfolio()
+        self.portfolio_value_history = {
             "dates": [],
             "values": [],
-            "invested": []
+            "invested": [],
+            "prices": []
         }
 
-        # Track buy metrics for dip detection
-        total_buy_amount = 0.0
-        total_buy_coins = 0.0
-        total_sell_amount = 0.0
-        total_sell_coins = 0.0
-
-        # Run simulation
-        for price_point in prices:
-            date = price_point.date
-            price = price_point.price
-
-            # Regular DCA investment
-            if date in investment_dates:
-                coins_to_buy = plan.amount / price
-                portfolio["total_coins"] += coins_to_buy
-                portfolio["total_invested"] += plan.amount
-                portfolio["number_of_trades"] += 1
-                total_buy_amount += plan.amount
-                total_buy_coins += coins_to_buy
-
-                portfolio["trades"].append({
-                    "date": date,
-                    "type": "buy",
-                    "price": price,
-                    "amount": coins_to_buy,
-                    "value": plan.amount,
-                    "reason": "regular"
-                })
-                logger.info(f"Regular buy: {coins_to_buy:.8f} {plan.symbol} at ${price:.2f}")
-
-            # Check for dip buy opportunity
-            if portfolio["total_coins"] > 0:
-                # Calculate drop from average buy price
-                if total_buy_coins > 0:
-                    avg_buy_price = total_buy_amount / total_buy_coins
-                    drop_percentage = (avg_buy_price - price) / avg_buy_price * 100
-
-                    # Buy extra if drop exceeds threshold
-                    if drop_percentage >= plan.dip_threshold:
-                        extra_coins = (plan.amount * 2) / price  # Double the regular amount
-                        portfolio["total_coins"] += extra_coins
-                        portfolio["total_invested"] += plan.amount * 2
-                        portfolio["number_of_trades"] += 1
-                        portfolio["dip_buys"] += 1
-                        total_buy_amount += plan.amount * 2
-                        total_buy_coins += extra_coins
-
-                        portfolio["trades"].append({
-                            "date": date,
-                            "type": "buy",
-                            "price": price,
-                            "amount": extra_coins,
-                            "value": plan.amount * 2,
-                            "reason": "dip_buy"
-                        })
-                        logger.info(f"Dip buy: {extra_coins:.8f} {plan.symbol} at ${price:.2f} ({drop_percentage:.1f}% drop)")
-
-            # Check for peak sell opportunity
-            if portfolio["total_coins"] > 0 and plan.enable_sells:
-                # Calculate profit percentage from average buy price
-                if total_buy_coins > 0:
-                    avg_buy_price = total_buy_amount / total_buy_coins
-                    profit_percentage = (price / avg_buy_price - 1) * 100
-
-                    # Sell if profit exceeds threshold
-                    if profit_percentage >= plan.peak_threshold:
-                        # Sell 50% of holdings at peak
-                        coins_to_sell = portfolio["total_coins"] * 0.50
-                        sale_amount = coins_to_sell * price
-                        portfolio["total_coins"] -= coins_to_sell
-                        portfolio["total_invested"] -= sale_amount
-                        portfolio["number_of_trades"] += 1
-                        portfolio["peak_sells"] += 1
-                        total_sell_amount += sale_amount
-                        total_sell_coins += coins_to_sell
-
-                        portfolio["trades"].append({
-                            "date": date,
-                            "type": "sell",
-                            "price": price,
-                            "amount": coins_to_sell,
-                            "value": sale_amount,
-                            "reason": "peak_sell"
-                        })
-                        logger.info(f"Peak sell: {coins_to_sell:.8f} {plan.symbol} at ${price:.2f} ({profit_percentage:.1f}% profit)")
-
-            # Record portfolio value
-            portfolio_value = portfolio["total_coins"] * price
-            portfolio_value_history["dates"].append(date)
-            portfolio_value_history["values"].append(portfolio_value)
-            portfolio_value_history["invested"].append(portfolio["total_invested"])
-
-        # Calculate metrics
-        roi, apy, sharpe_ratio, volatility = self._calculate_metrics(
-            portfolio_value_history,
-            portfolio["total_invested"]
+        # Get historical prices
+        prices = self.client.get_historical_prices(
+            plan.symbol,
+            plan.start_date,
+            plan.end_date
         )
+
+        if not prices:
+            raise ValueError(f"No price data available for {plan.symbol}")
+
+        # Sort prices by date
+        prices.sort(key=lambda x: x.date)
+
+        # Initialize variables
+        last_investment_date = None
+        last_sell_date = None
+        total_invested = 0
+        dip_buys = 0
+        peak_sells = 0
+
+        # Process each price point
+        for i, price in enumerate(prices):
+            current_date = price.date
+            current_price = price.price
+            price_history = prices[:i+1]  # All prices up to current date
+
+            # Check if it's time to invest
+            if last_investment_date is None or self._should_invest(current_date, last_investment_date, plan.frequency):
+                # Calculate investment amount
+                investment_amount = plan.amount
+
+                # Check for dip buying
+                if plan.dip_threshold > 0:
+                    dip_amount = self._calculate_dip_amount(current_price, price_history, plan.dip_threshold)
+                    if dip_amount > 0:
+                        investment_amount += dip_amount
+                        dip_buys += 1
+
+                # Execute buy
+                portfolio.buy(current_price, investment_amount, reason="dip_buy" if dip_amount > 0 else "regular")
+                total_invested += investment_amount
+                last_investment_date = current_date
+
+            # Check for selling opportunities
+            if plan.enable_sells:
+                # Calculate reference price for sell decisions
+                if len(price_history) >= plan.reference_period_days:
+                    recent_prices = [p.price for p in price_history[-plan.reference_period_days:]]
+                    reference_price = sum(recent_prices) / len(recent_prices)
+                    
+                    sell_amount = self._calculate_sell_amount(
+                        current_price,
+                        price_history,
+                        portfolio,
+                        plan,
+                        last_sell_date
+                    )
+                    
+                    if sell_amount > 0:
+                        # Calculate amount to sell in dollars
+                        sell_value = portfolio.get_value(current_price) * sell_amount
+                        portfolio.sell(
+                            current_price, 
+                            sell_value, 
+                            reason="stop_loss" if current_price < reference_price else "profit_taking"
+                        )
+                        peak_sells += 1
+                        last_sell_date = current_date
+
+            # Update portfolio value history
+            self._update_portfolio_value_history(
+                current_date,
+                portfolio.get_value(current_price),
+                total_invested,
+                current_price
+            )
+
+        # Calculate final metrics
+        final_value = portfolio.get_value(prices[-1].price)
+        roi = ((final_value - total_invested) / total_invested) * 100 if total_invested > 0 else 0
+        apy = self._calculate_apy(total_invested, final_value, prices[0].date, prices[-1].date)
+        sharpe_ratio = self._calculate_sharpe_ratio(self.portfolio_value_history["values"])
+        volatility = self._calculate_volatility(self.portfolio_value_history["values"])
+        number_of_trades = len(portfolio.trades)
+
+        # Convert trades to dicts for Pydantic validation
+        trades = [t.dict() for t in portfolio.trades]
 
         return BacktestResult(
             roi=roi,
             apy=apy,
             sharpe_ratio=sharpe_ratio,
             volatility=volatility,
-            total_invested=portfolio["total_invested"],
-            final_value=portfolio_value_history["values"][-1],
-            number_of_trades=portfolio["number_of_trades"],
-            dip_buys=portfolio["dip_buys"],
-            peak_sells=portfolio["peak_sells"],
-            trades=portfolio["trades"],
-            portfolio_value_history=portfolio_value_history
+            total_invested=total_invested,
+            final_value=final_value,
+            number_of_trades=number_of_trades,
+            dip_buys=dip_buys,
+            peak_sells=peak_sells,
+            portfolio_value_history=self.portfolio_value_history,
+            trades=trades
         ) 

@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 import requests
 from pydantic import BaseModel, Field
+from .base import BaseClient, PricePoint
 
 logger = logging.getLogger(__name__)
 
@@ -23,34 +24,30 @@ SYMBOL_TO_ID = {
     "LINK": "chainlink"
 }
 
-class PricePoint(BaseModel):
-    """Data model for price points."""
-    date: datetime
-    price: float = Field(..., gt=0)
-    volume: Optional[float] = Field(None, ge=0)
-
-
 class CoinGeckoRateLimitError(Exception):
     """Exception raised when CoinGecko API rate limit is reached."""
     def __init__(self, retry_after: int):
         self.retry_after = retry_after
-        super().__init__(f"Rate limit reached. Please wait {retry_after} seconds.")
+        super().__init__(f"Rate limit exceeded. Retry after {retry_after} seconds.")
 
 
-class CoinGeckoClient:
+class CoinGeckoClient(BaseClient):
     """Client for interacting with the CoinGecko API."""
 
     BASE_URL = "https://api.coingecko.com/api/v3"
     RATE_LIMIT_HEADER = "X-RateLimit-Remaining"
     RATE_LIMIT_RESET_HEADER = "X-RateLimit-Reset"
+    MIN_DELAY = 6.1  # Minimum delay between requests (slightly more than 6 seconds to be safe)
 
-    def __init__(self):
+    def __init__(self, api_key: Optional[str] = None):
         """Initialize the CoinGecko client."""
+        super().__init__(api_key)
         self.session = requests.Session()
         self.session.headers.update({
             "Accept": "application/json",
             "User-Agent": "DCA-Backtester/1.0"
         })
+        self.last_request_time = 0
 
     def _handle_rate_limit(self, response: requests.Response) -> None:
         """Handle rate limit headers from response."""
@@ -59,9 +56,28 @@ class CoinGeckoClient:
             raise CoinGeckoRateLimitError(retry_after)
         
         remaining = response.headers.get(self.RATE_LIMIT_HEADER)
-        if remaining and int(remaining) < 10:
-            logger.warning(f"Low rate limit remaining: {remaining} requests")
-            time.sleep(1)  # Add a small delay to prevent hitting the limit
+        if remaining:
+            remaining = int(remaining)
+            if remaining < 10:
+                logger.warning(f"Low rate limit remaining: {remaining} requests")
+                # Add extra delay when running low on requests
+                time.sleep(self.MIN_DELAY * 2)
+            elif remaining < 30:
+                logger.warning(f"Rate limit getting low: {remaining} requests")
+                # Add small extra delay when getting low
+                time.sleep(self.MIN_DELAY * 1.5)
+
+    def _enforce_rate_limit(self):
+        """Enforce minimum delay between requests."""
+        current_time = time.time()
+        time_since_last_request = current_time - self.last_request_time
+        
+        if time_since_last_request < self.MIN_DELAY:
+            sleep_time = self.MIN_DELAY - time_since_last_request
+            logger.debug(f"Rate limit: Sleeping for {sleep_time:.2f} seconds")
+            time.sleep(sleep_time)
+        
+        self.last_request_time = time.time()
 
     def _make_request(self, endpoint: str, params: Optional[Dict] = None) -> Dict:
         """Make a request to the CoinGecko API with rate limit handling."""
@@ -71,6 +87,7 @@ class CoinGeckoClient:
 
         for attempt in range(max_retries):
             try:
+                self._enforce_rate_limit()  # Enforce minimum delay between requests
                 response = self.session.get(url, params=params)
                 self._handle_rate_limit(response)
                 response.raise_for_status()
@@ -87,52 +104,68 @@ class CoinGeckoClient:
                 time.sleep(retry_delay)
                 retry_delay *= 2
 
+    def get_coin_id(self, symbol: str) -> str:
+        """Convert symbol to CoinGecko coin ID."""
+        # Map of common symbols to CoinGecko IDs
+        symbol_to_id = {
+            "BTC": "bitcoin",
+            "ETH": "ethereum",
+            "USDT": "tether",
+            "BNB": "binancecoin",
+            "SOL": "solana",
+            "XRP": "ripple",
+            "USDC": "usd-coin",
+            "ADA": "cardano",
+            "AVAX": "avalanche-2",
+            "DOGE": "dogecoin"
+        }
+        return symbol_to_id.get(symbol.upper(), symbol.lower())
+
     def get_historical_prices(
         self,
-        coin_id: str,
+        symbol: str,
         start_date: str,
         end_date: str
     ) -> List[PricePoint]:
-        """Get historical prices for a cryptocurrency."""
+        """Get historical daily prices for a symbol."""
+        coin_id = self.get_coin_id(symbol)
+        start = datetime.fromisoformat(start_date)
+        end = datetime.fromisoformat(end_date)
+
+        # Convert to Unix timestamps
+        start_ts = int(start.timestamp())
+        end_ts = int(end.timestamp())
+
+        url = f"{self.BASE_URL}/coins/{coin_id}/market_chart/range"
+        params = {
+            "vs_currency": "usd",
+            "from": start_ts,
+            "to": end_ts
+        }
+
         try:
-            # Convert dates to Unix timestamps
-            start_ts = int(datetime.fromisoformat(start_date).timestamp())
-            end_ts = int(datetime.fromisoformat(end_date).timestamp())
+            response = self.session.get(url, params=params)
+            response.raise_for_status()
 
-            # Make API request
-            data = self._make_request(
-                f"coins/{coin_id}/market_chart/range",
-                params={
-                    "vs_currency": "usd",
-                    "from": start_ts,
-                    "to": end_ts
-                }
-            )
+            if response.status_code == 429:  # Rate limit
+                retry_after = int(response.headers.get("Retry-After", 60))
+                raise CoinGeckoRateLimitError(retry_after)
 
-            # Process response
+            data = response.json()
             prices = []
             for timestamp, price in data["prices"]:
                 date = datetime.fromtimestamp(timestamp / 1000)
-                prices.append(PricePoint(
-                    date=date,
-                    price=price,
-                    volume=data["total_volumes"][data["prices"].index([timestamp, price])][1] if "total_volumes" in data else None
-                ))
-
+                if start <= date <= end:
+                    prices.append(PricePoint(
+                        date=date,
+                        price=price,
+                        volume=None  # CoinGecko doesn't provide volume in this endpoint
+                    ))
             return prices
 
-        except CoinGeckoRateLimitError as e:
-            logger.error(f"Rate limit reached: {str(e)}")
-            raise
-        except Exception as e:
-            logger.error(f"Error fetching historical prices: {str(e)}")
-            raise
-
-    def get_coin_id(self, symbol: str) -> str:
-        """Get CoinGecko coin ID from symbol."""
-        if symbol not in SYMBOL_TO_ID:
-            raise ValueError(f"Symbol {symbol} not supported. Supported symbols: {', '.join(SYMBOL_TO_ID.keys())}")
-        return SYMBOL_TO_ID[symbol]
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Error fetching prices for {symbol}: {e}")
+            return []
 
     def get_historical(
         self,

@@ -8,7 +8,7 @@ from plotly.subplots import make_subplots
 import time
 
 from dca_backtester.models import DCAPlan, Frequency
-from dca_backtester.backtester import DCABacktester
+from dca_backtester.backtester import DCABacktester, BacktestResult
 from dca_backtester.client.coingecko import CoinGeckoClient, CoinGeckoRateLimitError, SYMBOL_TO_ID
 from dca_backtester.utils.ai_insights import get_ai_insights
 
@@ -27,6 +27,17 @@ def show_rate_limit_message(retry_after: int):
     # Clear the countdown
     countdown_placeholder.empty()
     st.info("🔄 Retrying now...")
+
+def show_api_cooldown_message(days: int):
+    """Show a user-friendly message about API cooldown period."""
+    st.warning(f"""
+    ⏳ **API Cooldown Notice**
+    
+    Due to CoinGecko API limitations, we need to fetch data in {days}-day chunks.
+    This may take a few moments, but we'll keep you updated on the progress.
+    
+    Please be patient while we gather the historical data...
+    """)
 
 def main():
     """Main function to run the Streamlit app."""
@@ -55,21 +66,114 @@ def main():
         help="Select from supported cryptocurrencies"
     )
 
-    # Investment amount
+    # Investment strategy
+    st.sidebar.header("Investment Strategy")
     amount = st.sidebar.number_input(
         "Investment Amount ($)",
-        min_value=10,
-        max_value=10000,
-        value=100,
-        step=10
+        min_value=1.0,
+        value=100.0,
+        step=10.0,
+        help="Amount to invest in each period"
     )
-
-    # Investment frequency
     frequency = st.sidebar.selectbox(
         "Investment Frequency",
         ["daily", "weekly", "monthly"],
-        index=1
+        index=1,
+        help="How often to make regular investments"
     )
+    dip_threshold = st.sidebar.number_input(
+        "Dip Buy Threshold (%)",
+        min_value=0.0,
+        value=10.0,
+        step=1.0,
+        help="Buy extra when price drops by this percentage"
+    )
+
+    # Selling strategy
+    st.sidebar.header("Selling Strategy")
+    enable_sells = st.sidebar.checkbox(
+        "Enable Selling Strategy",
+        value=False,
+        help="Enable smart selling rules to take profits and manage risk"
+    )
+
+    if enable_sells:
+        st.sidebar.subheader("Profit Taking")
+        profit_taking_threshold = st.sidebar.number_input(
+            "Profit Taking Threshold (%)",
+            min_value=0.0,
+            value=20.0,
+            step=1.0,
+            help="Take profits when price increases by this percentage"
+        )
+        profit_taking_amount = st.sidebar.number_input(
+            "Profit Taking Amount (%)",
+            min_value=0.0,
+            max_value=100.0,
+            value=25.0,
+            step=5.0,
+            help="Percentage of holdings to sell when taking profits"
+        )
+
+        st.sidebar.subheader("Portfolio Rebalancing")
+        rebalancing_threshold = st.sidebar.number_input(
+            "Rebalancing Threshold (%)",
+            min_value=0.0,
+            value=50.0,
+            step=5.0,
+            help="Rebalance portfolio when price increases by this percentage"
+        )
+        rebalancing_amount = st.sidebar.number_input(
+            "Rebalancing Amount (%)",
+            min_value=0.0,
+            max_value=100.0,
+            value=50.0,
+            step=5.0,
+            help="Percentage of holdings to sell when rebalancing"
+        )
+
+        st.sidebar.subheader("Risk Management")
+        stop_loss_threshold = st.sidebar.number_input(
+            "Stop Loss Threshold (%)",
+            min_value=0.0,
+            value=0.0,
+            step=5.0,
+            help="Sell to limit losses when price drops by this percentage (0 to disable)"
+        )
+        stop_loss_amount = st.sidebar.number_input(
+            "Stop Loss Amount (%)",
+            min_value=0.0,
+            max_value=100.0,
+            value=100.0,
+            step=5.0,
+            help="Percentage of holdings to sell when stop loss is triggered"
+        )
+
+        st.sidebar.subheader("Strategy Settings")
+        sell_cooldown_days = st.sidebar.number_input(
+            "Sell Cooldown (days)",
+            min_value=0,
+            value=7,
+            step=1,
+            help="Minimum days between sell operations"
+        )
+        reference_period_days = st.sidebar.number_input(
+            "Reference Period (days)",
+            min_value=1,
+            value=30,
+            step=1,
+            help="Number of days to calculate reference price for sell decisions"
+        )
+    else:
+        # Default values when selling is disabled
+        profit_taking_threshold = 20.0
+        profit_taking_amount = 25.0
+        rebalancing_threshold = 50.0
+        rebalancing_amount = 50.0
+        stop_loss_threshold = 0.0
+        stop_loss_amount = 100.0
+        sell_cooldown_days = 7
+        reference_period_days = 30
 
     # Date range
     col1, col2 = st.sidebar.columns(2)
@@ -84,37 +188,33 @@ def main():
             datetime.now()
         )
 
-    # Advanced parameters
-    st.sidebar.header("Advanced Parameters")
-    
-    # Enable/disable sells
-    enable_sells = st.sidebar.checkbox(
-        "Enable Peak Sells",
-        value=True,
-        help="When enabled, the strategy will sell a portion of holdings when profit targets are reached"
+    # Data source selection
+    st.sidebar.header("Data Source")
+    data_source = st.sidebar.selectbox(
+        "Select Data Source",
+        ["CryptoCompare", "Local data"],
+        index=0,
+        help="Choose which data source to use for historical price data."
     )
 
-    # Only show sell threshold if sells are enabled
-    if enable_sells:
-        peak_threshold = st.sidebar.slider(
-            "Peak Sell Threshold (%)",
-            min_value=0,
-            max_value=50,
-            value=20,
-            step=5,
-            help="Percentage profit that triggers a sell (e.g., 20% means sell when profit reaches 20%)"
+    # Show API key input if CryptoCompare is selected
+    if data_source == "CryptoCompare":
+        api_key = st.sidebar.text_input(
+            "CryptoCompare API Key",
+            type="password",
+            help="Get your free API key from https://min-api.cryptocompare.com/"
         )
-    else:
-        peak_threshold = 0  # Set to 0 when disabled
+        if not api_key:
+            st.sidebar.error("Please enter your CryptoCompare API key")
+            st.stop()
+    elif data_source == "Local data":
+        st.sidebar.info("You are using local cached data.\n\n**Disclaimer:** The available data is limited to the last time you updated your local files. For the most up-to-date results, use CryptoCompare or update your local data cache.")
 
-    dip_threshold = st.sidebar.slider(
-        "Dip Buy Threshold (%)",
-        min_value=0,
-        max_value=50,
-        value=10,
-        step=5,
-        help="Percentage drop that triggers an additional buy (e.g., 10% means buy extra when price drops 10%)"
-    )
+    # Graph visibility controls
+    st.sidebar.header("Graph Settings")
+    show_portfolio = st.sidebar.checkbox("Show Portfolio Value", value=True)
+    show_invested = st.sidebar.checkbox("Show Total Invested", value=True)
+    show_price = st.sidebar.checkbox("Show Asset Price", value=True)
 
     # Run backtest button
     if st.sidebar.button("Run Backtest", type="primary"):
@@ -122,6 +222,11 @@ def main():
             # Convert dates to ISO format strings
             start_date_str = start_date.isoformat()
             end_date_str = end_date.isoformat()
+
+            # Calculate number of days for API cooldown message
+            days_diff = (end_date - start_date).days
+            if days_diff > 90 and data_source == "CryptoCompare":
+                show_api_cooldown_message(90)
 
             # Create DCA plan
             plan = DCAPlan(
@@ -131,12 +236,24 @@ def main():
                 start_date=start_date_str,
                 end_date=end_date_str,
                 dip_threshold=dip_threshold,
-                peak_threshold=peak_threshold,
-                enable_sells=enable_sells
+                enable_sells=enable_sells,
+                profit_taking_threshold=profit_taking_threshold,
+                profit_taking_amount=profit_taking_amount,
+                rebalancing_threshold=rebalancing_threshold,
+                rebalancing_amount=rebalancing_amount,
+                stop_loss_threshold=stop_loss_threshold,
+                stop_loss_amount=stop_loss_amount,
+                sell_cooldown_days=sell_cooldown_days,
+                reference_period_days=reference_period_days
             )
 
             # Initialize client and backtester
-            client = CoinGeckoClient()
+            if data_source == "CryptoCompare":
+                from dca_backtester.client.cryptocompare import CryptoCompareClient
+                client = CryptoCompareClient(api_key=api_key)
+            else:
+                from dca_backtester.client.local_csv import LocalCSVClient
+                client = LocalCSVClient()
             backtester = DCABacktester(client)
 
             # Run backtest with rate limit handling
@@ -153,58 +270,76 @@ def main():
                     show_rate_limit_message(e.retry_after)
                     continue
 
-            # Display results in tabs
-            tab1, tab2, tab3 = st.tabs(["Performance", "Trade History", "AI Insights"])
+            # Display results
+            st.header("Backtest Results")
 
-            with tab1:
-                # Create performance metrics
-                col1, col2, col3, col4 = st.columns(4)
-                with col1:
-                    st.metric("ROI", f"{results['roi']:.1f}%")
-                with col2:
-                    st.metric("APY", f"{results['apy']:.1f}%")
-                with col3:
-                    st.metric("Sharpe Ratio", f"{results['sharpe_ratio']:.2f}")
-                with col4:
-                    st.metric("Volatility", f"{results['volatility']:.1f}%")
-
-                # Create portfolio value chart
-                fig = make_subplots(specs=[[{"secondary_y": True}]])
-                
-                # Add portfolio value line
+            # Create portfolio value chart
+            fig = make_subplots(specs=[[{"secondary_y": True}]])
+            
+            # Add portfolio value line if enabled
+            if show_portfolio:
                 fig.add_trace(
                     go.Scatter(
-                        x=results["portfolio_value_history"]["dates"],
-                        y=results["portfolio_value_history"]["values"],
+                        x=results.portfolio_value_history["dates"],
+                        y=results.portfolio_value_history["values"],
                         name="Portfolio Value",
-                        line=dict(color="blue")
+                        line=dict(color="blue", width=2)
                     ),
                     secondary_y=False
                 )
-                
-                # Add investment amount line
+            
+            # Add investment amount line if enabled
+            if show_invested:
                 fig.add_trace(
                     go.Scatter(
-                        x=results["portfolio_value_history"]["dates"],
-                        y=results["portfolio_value_history"]["invested"],
+                        x=results.portfolio_value_history["dates"],
+                        y=results.portfolio_value_history["invested"],
                         name="Total Invested",
-                        line=dict(color="green", dash="dash")
+                        line=dict(color="green", dash="dash", width=2)
                     ),
                     secondary_y=False
                 )
 
-                fig.update_layout(
-                    title="Portfolio Value Over Time",
-                    xaxis_title="Date",
-                    yaxis_title="Value ($)",
-                    hovermode="x unified"
+            # Add asset price line if enabled
+            if show_price:
+                fig.add_trace(
+                    go.Scatter(
+                        x=results.portfolio_value_history["dates"],
+                        y=results.portfolio_value_history["prices"],
+                        name="Asset Price",
+                        line=dict(color="red", width=1)
+                    ),
+                    secondary_y=True
                 )
 
-                st.plotly_chart(fig, use_container_width=True)
+            # Update layout
+            fig.update_layout(
+                title="Portfolio Performance",
+                xaxis_title="Date",
+                yaxis_title="Value ($)",
+                yaxis2_title="Asset Price ($)",
+                hovermode="x unified",
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=1.02,
+                    xanchor="right",
+                    x=1
+                )
+            )
+
+            # Update y-axes
+            fig.update_yaxes(title_text="Value ($)", secondary_y=False)
+            fig.update_yaxes(title_text="Asset Price ($)", secondary_y=True)
+
+            st.plotly_chart(fig, use_container_width=True)
+
+            # Display trade history
+            tab2, tab3 = st.tabs(["Trade History", "AI Insights"])
 
             with tab2:
                 # Convert trades to DataFrame
-                trades_df = pd.DataFrame(results["trades"])
+                trades_df = pd.DataFrame(results.trades)
                 if not trades_df.empty:
                     trades_df["date"] = pd.to_datetime(trades_df["date"])
                     trades_df = trades_df.sort_values("date")
