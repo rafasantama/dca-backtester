@@ -21,18 +21,27 @@ class DCAPlan(BaseModel):
     symbol: str = Field(..., description="Cryptocurrency symbol (e.g., BTC, ETH)")
     frequency: Frequency = Field(..., description="DCA frequency")
     amount: float = Field(..., gt=0, description="Amount to invest per period")
-    dip_adjustment: float = Field(
+    dip_threshold: float = Field(
         0.0,
         ge=0.0,
-        le=1.0,
-        description="Additional investment when price drops by this percentage",
+        le=100.0,
+        description="Percentage drop to trigger additional buy (0-100)",
     )
-    sell_threshold: float = Field(
-        0.0,
+    dip_increase_percentage: float = Field(
+        100.0,
         ge=0.0,
-        le=1.0,
-        description="Sell when price increases by this percentage",
+        le=500.0,
+        description="Percentage to increase investment amount during dips (0-500)",
     )
+    enable_sells: bool = Field(False, description="Enable selling strategy")
+    profit_taking_threshold: float = Field(20.0, ge=0, description="Take profit at X% gain")
+    profit_taking_amount: float = Field(25.0, ge=0, le=100, description="Sell X% of holdings")
+    rebalancing_threshold: float = Field(50.0, ge=0, description="Rebalance at X% gain")
+    rebalancing_amount: float = Field(50.0, ge=0, le=100, description="Sell X% of holdings")
+    stop_loss_threshold: float = Field(0, ge=0, description="Stop loss at X% loss")
+    stop_loss_amount: float = Field(100.0, ge=0, le=100, description="Sell X% of holdings")
+    sell_cooldown_days: int = Field(7, ge=0, description="Minimum days between sells")
+    reference_period_days: int = Field(30, ge=1, description="Days to calculate reference price")
     start_date: Optional[str] = Field(None, description="Start date (YYYY-MM-DD)")
     end_date: Optional[str] = Field(None, description="End date (YYYY-MM-DD)")
 

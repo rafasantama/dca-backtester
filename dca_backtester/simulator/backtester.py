@@ -95,13 +95,13 @@ class DCABacktester:
             last_price: Previous price
 
         Returns:
-            True if price drop exceeds dip adjustment threshold
+            True if price drop exceeds dip threshold
         """
-        if not self.plan.dip_adjustment:
+        if not self.plan.dip_threshold:
             return False
 
-        price_change = (current_price - last_price) / last_price
-        return price_change <= -self.plan.dip_adjustment
+        price_change = (current_price - last_price) / last_price * 100
+        return price_change <= -self.plan.dip_threshold
 
     def _should_sell_peak(self, current_price: float, last_price: float) -> bool:
         """Check if we should sell at a peak.
@@ -148,10 +148,12 @@ class DCABacktester:
 
                 # Check for dip buy opportunity
                 if self._should_buy_dip(price_point.price, last_price):
+                    # Calculate dip buy amount with increase percentage
+                    dip_amount = self.plan.amount * (1 + self.plan.dip_increase_percentage / 100.0)
                     self._execute_trade(
                         date,
                         price_point.price,
-                        self.plan.amount,
+                        dip_amount,
                         is_dip_buy=True,
                     )
 

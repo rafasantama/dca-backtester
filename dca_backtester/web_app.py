@@ -123,8 +123,17 @@ def main():
                 value=10,
                 help="Percentage drop to trigger additional buy"
             )
+            
+            dip_increase_percentage = st.slider(
+                "Dip Increase (%)",
+                min_value=0,
+                max_value=500,
+                value=100,
+                help="Percentage to increase investment amount during dips"
+            )
         else:
             dip_threshold = 0
+            dip_increase_percentage = 0
 
         # Selling strategy
         st.subheader("Selling Strategy")
@@ -219,6 +228,7 @@ def main():
                 amount=amount,
                 frequency=Frequency(frequency),
                 dip_threshold=dip_threshold,
+                dip_increase_percentage=dip_increase_percentage,
                 enable_sells=enable_sells,
                 profit_taking_threshold=profit_taking_threshold,
                 profit_taking_amount=profit_taking_amount,
@@ -399,7 +409,7 @@ def main():
     st.markdown("---")
     st.markdown("""
     <div style='text-align: center'>
-        <p>Built with ❤️ using Streamlit | Data from CoinGecko</p>
+        <p>Built with ❤️ using Streamlit | Data from CryptoCompare</p>
     </div>
     """, unsafe_allow_html=True)
 

@@ -151,8 +151,18 @@ class DCABacktester:
                    current_date.month > last_investment_date.month)
         return False
 
-    def _calculate_dip_amount(self, current_price: float, prices: List[PricePoint], dip_threshold: float) -> float:
-        """Calculate additional investment amount for dip buying."""
+    def _calculate_dip_amount(self, current_price: float, prices: List[PricePoint], dip_threshold: float, dip_increase_percentage: float) -> float:
+        """Calculate additional investment amount for dip buying.
+        
+        Args:
+            current_price: Current price
+            prices: List of historical price points
+            dip_threshold: Percentage drop threshold to trigger dip buy
+            dip_increase_percentage: Percentage to increase investment amount during dips
+            
+        Returns:
+            Additional investment amount as a multiplier of regular amount
+        """
         if not prices or len(prices) < 2:
             return 0.0
         
@@ -163,9 +173,9 @@ class DCABacktester:
         # Calculate price drop percentage
         drop_percentage = (avg_price - current_price) / avg_price * 100
         
-        # If drop exceeds threshold, return double the regular amount
+        # If drop exceeds threshold, return the configured increase percentage
         if drop_percentage >= dip_threshold:
-            return 2.0  # Double the regular amount
+            return dip_increase_percentage / 100.0  # Convert percentage to multiplier
         return 0.0
 
     def _calculate_peak_sell_amount(self, current_price: float, prices: List[PricePoint], peak_threshold: float) -> float:
@@ -305,17 +315,18 @@ class DCABacktester:
             if last_investment_date is None or self._should_invest(current_date, last_investment_date, plan.frequency):
                 # Calculate investment amount
                 investment_amount = plan.amount
-                dip_amount = 0  # Inicializar dip_amount
+                dip_multiplier = 0.0  # Initialize dip_multiplier
 
                 # Check for dip buying
                 if plan.dip_threshold > 0:
-                    dip_amount = self._calculate_dip_amount(current_price, price_history, plan.dip_threshold)
-                    if dip_amount > 0:
-                        investment_amount += dip_amount
+                    dip_multiplier = self._calculate_dip_amount(current_price, price_history, plan.dip_threshold, plan.dip_increase_percentage)
+                    if dip_multiplier > 0:
+                        # Apply the dip multiplier to the regular investment amount
+                        investment_amount = plan.amount * (1 + dip_multiplier)
                         dip_buys += 1
 
                 # Execute buy
-                portfolio.buy(current_price, investment_amount, reason="dip_buy" if dip_amount > 0 else "regular")
+                portfolio.buy(current_price, investment_amount, reason="dip_buy" if dip_multiplier > 0 else "regular")
                 total_invested += investment_amount
                 last_investment_date = current_date
 

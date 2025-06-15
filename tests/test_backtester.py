@@ -31,8 +31,17 @@ def sample_plan():
         symbol="BTC",
         frequency=Frequency.WEEKLY,
         amount=100.0,
-        dip_adjustment=0.1,
-        sell_threshold=0.2,
+        dip_threshold=10.0,  # 10% drop threshold
+        dip_increase_percentage=200.0,  # 200% increase during dips
+        enable_sells=True,
+        profit_taking_threshold=20.0,
+        profit_taking_amount=25.0,
+        rebalancing_threshold=50.0,
+        rebalancing_amount=50.0,
+        stop_loss_threshold=15.0,
+        stop_loss_amount=100.0,
+        sell_cooldown_days=7,
+        reference_period_days=30
     )
 
 
@@ -82,7 +91,13 @@ def test_dip_buying(sample_prices, sample_plan):
 
     # Should have regular buy + dip buy
     assert len(trades) == 2
-    assert sum(1 for t in trades if t.is_dip_buy) == 1
+    dip_buys = [t for t in trades if t.is_dip_buy]
+    assert len(dip_buys) == 1
+    
+    # Verify dip buy amount is 3x regular amount (200% increase)
+    regular_buys = [t for t in trades if not t.is_dip_buy]
+    assert len(regular_buys) == 1
+    assert dip_buys[0].amount == regular_buys[0].amount * 3  # 3x because of 200% increase
 
 
 def test_peak_selling(sample_prices, sample_plan):

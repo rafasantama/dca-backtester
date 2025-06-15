@@ -28,6 +28,7 @@ class DCAPlan(BaseModel):
     start_date: str = Field(..., description="Start date (YYYY-MM-DD)")
     end_date: str = Field(..., description="End date (YYYY-MM-DD)")
     dip_threshold: float = Field(0, ge=0, description="Percentage drop to trigger additional buy (0-100)")
+    dip_increase_percentage: float = Field(100, ge=0, le=500, description="Percentage to increase investment amount during dips (0-500)")
     
     # Selling strategy parameters
     enable_sells: bool = False
