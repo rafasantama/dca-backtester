@@ -4,7 +4,7 @@ A powerful Dollar-Cost Averaging (DCA) backtesting tool that helps you analyze a
 
 ## Features
 
-- Real-time price data from Binance
+- Real-time price data from CryptoCompare
 - Sophisticated DCA strategies with dip buying
 - Advanced selling strategies (profit taking, rebalancing, stop loss)
 - Detailed performance metrics and visualizations
