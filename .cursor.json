@@ -1,0 +1,22 @@
+{
+  "rules": [
+    {
+      "match": "**/*.py",
+      "rules": {
+        "use_type_hints": true,
+        "docstrings_required": true,
+        "max_function_length": 50,
+        "avoid_hardcoded_values": true,
+        "exceptions_must_be_specific": true,
+        "logger_should_be_used": true
+      }
+    },
+    {
+      "match": "tests/**/*.py",
+      "rules": {
+        "use_pytest_fixtures": true,
+        "assertion_messages": true
+      }
+    }
+  ]
+} 

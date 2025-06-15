@@ -1,0 +1,49 @@
+[tool.poetry]
+name = "dca-backtester"
+version = "0.1.0"
+description = "A tool for backtesting Dollar-Cost Averaging (DCA) strategies using historical cryptocurrency price data from CoinGecko"
+authors = ["Your Name <your.email@example.com>"]
+readme = "README.md"
+packages = [{include = "dca_backtester"}]
+
+[tool.poetry.dependencies]
+python = ">=3.9,<3.9.7 || >3.9.7,<4.0"
+pydantic = "^2.6.1"
+pycoingecko = "^3.1.0"
+streamlit = "^1.32.0"
+plotly = "^5.18.0"
+pandas = "^2.2.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0.0"
+black = "^24.1.1"
+isort = "^5.13.2"
+mypy = "^1.8.0"
+ruff = "^0.2.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 100
+target-version = ['py39']
+include = '\.pyi?$'
+
+[tool.isort]
+profile = "black"
+line_length = 100
+multi_line_output = 3
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+select = ["E", "F", "B", "I"]
+ignore = [] 
