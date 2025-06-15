@@ -305,6 +305,7 @@ class DCABacktester:
             if last_investment_date is None or self._should_invest(current_date, last_investment_date, plan.frequency):
                 # Calculate investment amount
                 investment_amount = plan.amount
+                dip_amount = 0  # Inicializar dip_amount
 
                 # Check for dip buying
                 if plan.dip_threshold > 0:

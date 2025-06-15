@@ -1,5 +1,5 @@
 streamlit==1.32.0
 pandas==2.2.1
 plotly==5.19.0
-python-binance==1.0.19
-pydantic==2.6.3 
+pydantic==2.6.3
+requests==2.31.0 
