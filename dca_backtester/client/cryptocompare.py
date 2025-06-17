@@ -32,8 +32,10 @@ class CryptoCompareClient:
     def __init__(self, api_key: str):
         """Initialize CryptoCompare client with API key."""
         if not api_key:
+            logger.error("❌ CryptoCompare API key is required! Please set it in your environment.")
             raise ValueError("CryptoCompare API key is required")
         self.api_key = api_key
+        logger.info("🔑 CryptoCompare client initialized with API key.")
 
     def get_coin_id(self, symbol: str) -> str:
         """Get CryptoCompare symbol from trading symbol."""
@@ -62,12 +64,13 @@ class CryptoCompareClient:
             "api_key": self.api_key
         }
         
-        logger.info(f"Fetching {days} days of data from {start_dt.date()} to {end_dt.date()}")
+        logger.info(f"📊 Fetching {days} days of data from {start_dt.date()} to {end_dt.date()} for {symbol}.")
         response = requests.get(CRYPTOCOMPARE_API_URL, params=params)
         response.raise_for_status()
         data = response.json()
         
         if data["Response"] != "Success":
+            logger.error(f"🚨 CryptoCompare API error: {data.get('Message', 'Unknown error')}")
             raise Exception(f"CryptoCompare API error: {data.get('Message', 'Unknown error')}")
         
         price_points = []
