@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import time
+import os
 
 from dca_backtester.models import DCAPlan, Frequency
 from dca_backtester.backtester import DCABacktester, BacktestResult
@@ -60,28 +61,23 @@ def main():
 
     # Sidebar for configuration
     with st.sidebar:
-        st.header("Configuration")
+        st.header("🛠️ Configuration")
         
-        # API Key input
-        api_key = st.text_input(
-            "CryptoCompare API Key",
-            type="password",
-            help="Get your free API key from https://www.cryptocompare.com/cryptopian/api-keys"
-        )
-        
+        # Load CryptoCompare API key from environment
+        api_key = os.getenv("CRYPTOCOMPARE_API_KEY")
         if not api_key:
-            st.warning("Please enter your CryptoCompare API key to continue.")
+            st.warning("🔑 CryptoCompare API key not found in environment variables. Please set CRYPTOCOMPARE_API_KEY in your .env file.")
             st.stop()
 
         # Symbol selection
         symbol = st.selectbox(
-            "Cryptocurrency",
+            "💰 Cryptocurrency",
             ["BTC", "ETH", "BNB", "XRP", "ADA", "MATIC", "LINK"],
             help="Select the cryptocurrency to backtest"
         )
 
         # Date range
-        st.subheader("Date Range")
+        st.subheader("📅 Date Range")
         end_date = datetime.now()
         start_date = end_date - timedelta(days=365)  # Default to 1 year
         
@@ -92,7 +88,7 @@ def main():
             end_date = st.date_input("End Date", end_date)
 
         # Investment parameters
-        st.subheader("Investment Parameters")
+        st.subheader("💸 Investment Parameters")
         amount = st.number_input(
             "Investment Amount ($)",
             min_value=1.0,
@@ -109,10 +105,10 @@ def main():
         )
 
         # Dip buying strategy
-        st.subheader("Dip Buying Strategy")
+        st.subheader("📉 Dip Buying Strategy")
         enable_dip = st.checkbox(
             "Enable Dip Buying",
-            value=True,
+            value=False,
             help="Buy more when price drops significantly"
         )
 
@@ -137,10 +133,10 @@ def main():
             dip_increase_percentage = 0
 
         # Selling strategy
-        st.subheader("Selling Strategy")
+        st.subheader("📈 Selling Strategy")
         enable_sells = st.checkbox(
             "Enable Selling Strategy",
-            value=True,
+            value=False,
             help="Sell when price increases significantly"
         )
 

@@ -32,7 +32,7 @@ class BacktestAnalyzer:
         Returns:
             str: Critical analysis of the backtesting results
         """
-        logger.info("Starting analysis of backtest results")
+        logger.info("🤖 Starting analysis of backtest results")
         
         # Extract relevant metrics
         metrics = {
@@ -50,7 +50,7 @@ class BacktestAnalyzer:
             'avg_trade_size': backtest_results.get('avg_trade_size', 0)
         }
 
-        logger.info(f"Analyzing strategy: {metrics['strategy_name']} for timeframe: {metrics['timeframe']}")
+        logger.info(f"🔍 Analyzing strategy: {metrics['strategy_name']} for timeframe: {metrics['timeframe']}")
 
         # Create prompt for OpenAI with context about DCA backtester and traditional finance benchmarks
         prompt = f"""
@@ -105,7 +105,7 @@ class BacktestAnalyzer:
         """
 
         try:
-            logger.info("Sending request to OpenAI API")
+            logger.info("�� Sending request to OpenAI API")
             response = self.client.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=[
@@ -116,9 +116,9 @@ class BacktestAnalyzer:
                 temperature=0.7
             )
             
-            logger.info("Successfully received response from OpenAI API")
+            logger.info("✅ Successfully received response from OpenAI API")
             return response.choices[0].message.content.strip()
             
         except Exception as e:
-            logger.error(f"Error in OpenAI API call: {str(e)}")
+            logger.error(f"🚨 Error in OpenAI API call: {str(e)}")
             return f"Error analyzing results: {str(e)}" 
