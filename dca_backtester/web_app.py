@@ -13,6 +13,7 @@ from dca_backtester.client.coingecko import CoinGeckoClient, CoinGeckoRateLimitE
 from dca_backtester.utils.ai_insights import get_ai_insights
 from dca_backtester.client.google_drive import GoogleDriveClient
 from dca_backtester.client.cryptocompare import CryptoCompareClient
+from dca_backtester.ai_analysis import BacktestAnalyzer
 
 def show_rate_limit_message(retry_after: int):
     """Show a user-friendly rate limit message with countdown."""
@@ -401,6 +402,28 @@ def main():
                 st.dataframe(trades_df)
             else:
                 st.info("No trades were executed during this period.")
+
+            # AI Analysis Section
+            st.subheader("AI Strategy Review")
+            with st.spinner("Analyzing results with AI..."):
+                analyzer = BacktestAnalyzer()
+                # Prepare results for AI with all relevant metrics
+                ai_input = {
+                    'strategy_name': plan.symbol + ' DCA ' + plan.frequency.value,
+                    'timeframe': f"{plan.start_date[:10]} to {plan.end_date[:10]}",
+                    'total_investment': results.total_invested,
+                    'final_value': results.final_value,
+                    'roi': results.roi,
+                    'apy': results.apy,
+                    'volatility': results.volatility,
+                    'sharpe_ratio': results.sharpe_ratio,
+                    'number_of_trades': results.number_of_trades,
+                    'dip_buys': results.dip_buys,
+                    'peak_sells': results.peak_sells,
+                    'avg_trade_size': results.total_invested / results.number_of_trades if results.number_of_trades > 0 else 0
+                }
+                ai_review = analyzer.analyze_results(ai_input)
+                st.success(ai_review)
 
         except Exception as e:
             st.error(f"Error running backtest: {str(e)}")
