@@ -4,8 +4,9 @@ from typing import Dict, Any, Optional
 from datetime import datetime, timedelta
 from abc import ABC, abstractmethod
 import asyncio
+import logging
 
-from tenacity import retry, stop_after_attempt, wait_exponential
+from tenacity import retry, stop_after_attempt, wait_exponential, RetryError
 
 from ..config import AgentKitSettings
 from ..models import TransactionReceipt, TestnetDCAPlan
@@ -18,6 +19,9 @@ from ..exceptions import (
     InsufficientBalanceError,
     TransactionFailedError
 )
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 
 class SpendTracker:
@@ -106,17 +110,29 @@ class BaseAgentService(BaseAgentServiceInterface):
     async def connect_wallet(self, wallet_address: str) -> bool:
         """Verify wallet connection and network."""
         try:
+            logger.info(f"Attempting to connect wallet: {wallet_address}")
+            
             # Validate wallet address format
             if not wallet_address.startswith("0x") or len(wallet_address) != 42:
+                logger.error(f"Invalid wallet address format: {wallet_address}")
                 raise WalletConnectionError("Invalid wallet address format")
                 
             # Use external wallet connector to verify the address
             await self.external_connector.verify_external_wallet(wallet_address)
+            logger.info(f"Successfully connected wallet: {wallet_address}")
             return True
             
+        except (NetworkError, WalletConnectionError):
+            # Re-raise known exceptions without wrapping
+            raise
+        except RetryError as e:
+            logger.error(f"Retry exhausted connecting wallet {wallet_address}: {e}")
+            raise WalletConnectionError(f"Failed to connect wallet after retries: {str(e)}")
         except Exception as e:
+            logger.error(f"Unexpected error connecting wallet {wallet_address}: {e}")
             raise WalletConnectionError(f"Failed to connect wallet: {str(e)}")
             
+    @retry(stop=stop_after_attempt(2), wait=wait_exponential(multiplier=1))
     async def execute_dca_buy(
         self, 
         plan: TestnetDCAPlan, 
@@ -124,19 +140,28 @@ class BaseAgentService(BaseAgentServiceInterface):
     ) -> TransactionReceipt:
         """Submit a single DCA buy, respecting gas & spend limits."""
         try:
+            logger.info(f"Executing DCA buy: ${amount_usd} for {plan.symbol}")
+            
             # Validate spending limits
             if not self.validate_spending_limits(amount_usd):
+                current_spend = self.spend_tracker.get_current_spend()
+                logger.warning(f"Spend limit exceeded: ${amount_usd} + ${current_spend} > ${self.settings.max_daily_spend_usd}")
                 raise SpendLimitExceededError(
                     f"Amount ${amount_usd} would exceed daily limit of ${self.settings.max_daily_spend_usd}"
                 )
                 
-            # Get gas estimates
-            gas_estimates = await self.external_connector.estimate_gas_price()
-            estimated_gas_cost_usd = gas_estimates.get("swap", 0.01)  # Default swap cost
+            # Get gas estimates with retry
+            try:
+                gas_estimates = await self.external_connector.estimate_gas_price()
+                estimated_gas_cost_usd = gas_estimates.get("swap", 0.01)  # Default swap cost
+            except Exception as e:
+                logger.warning(f"Gas estimation failed, using fallback: {e}")
+                estimated_gas_cost_usd = 0.01  # Conservative fallback
             
             # Validate gas cost
             gas_percentage = (estimated_gas_cost_usd / amount_usd) * 100
             if gas_percentage > plan.max_gas_percentage:
+                logger.error(f"Gas cost too high: {gas_percentage:.2f}% > {plan.max_gas_percentage}%")
                 raise GasLimitExceededError(
                     f"Gas cost {gas_percentage:.2f}% exceeds {plan.max_gas_percentage}% limit"
                 )
