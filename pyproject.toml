@@ -9,17 +9,30 @@ packages = [{include = "dca_backtester"}]
 [tool.poetry.dependencies]
 python = ">=3.9,<3.9.7 || >3.9.7,<4.0"
 pydantic = "^2.6.1"
+pydantic-settings = "^2.0.0"
 pycoingecko = "^3.1.0"
 streamlit = "^1.32.0"
 plotly = "^5.18.0"
 pandas = "^2.2.0"
+web3 = "^6.15.0"
+eth-account = "^0.8.0"
+tenacity = "^8.2.0"
+
+[tool.poetry.group.live.dependencies]
+# Live execution extras (Phase 7.2)
+cdp-sdk = "~0.0.4"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"
+pytest-asyncio = "^0.21.0"
 black = "^24.1.1"
 isort = "^5.13.2"
 mypy = "^1.8.0"
 ruff = "^0.2.1"
+
+[tool.poetry.group.test.dependencies]
+pytest-mock = "^3.12.0"
+pytest-cov = "^4.1.0"
 
 [build-system]
 requires = ["poetry-core"]

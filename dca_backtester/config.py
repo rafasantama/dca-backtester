@@ -4,6 +4,7 @@ from enum import Enum
 from typing import Optional
 
 from pydantic import BaseModel, Field, SecretStr
+from pydantic_settings import BaseSettings
 from pycoingecko import CoinGeckoAPI
 
 
@@ -44,6 +45,29 @@ class DCAPlan(BaseModel):
     reference_period_days: int = Field(30, ge=1, description="Days to calculate reference price")
     start_date: Optional[str] = Field(None, description="Start date (YYYY-MM-DD)")
     end_date: Optional[str] = Field(None, description="End date (YYYY-MM-DD)")
+
+
+class AgentKitSettings(BaseSettings):
+    """Type-safe environment configuration for CDP AgentKit."""
+    
+    # CDP API Keys (clearer naming)
+    cdp_api_key_id: Optional[str] = Field(None, description="CDP API Key ID")
+    cdp_private_key: Optional[str] = Field(None, description="CDP Private Key")
+    
+    # Network Configuration
+    base_sepolia_rpc_url: str = Field("https://sepolia.base.org", description="Base Sepolia RPC URL")
+    chain_id: int = Field(84532, description="Base Sepolia Chain ID")
+    
+    # Risk Management
+    max_daily_spend_usd: float = Field(1000.0, gt=0, description="Maximum daily spend in USD")
+    max_gas_percentage: float = Field(1.0, gt=0, le=5.0, description="Max gas as % of tx value")
+    spend_reset_hours: int = Field(24, gt=0, description="Rolling spend reset window in hours")
+    
+    model_config = {
+        'env_file': '.env',
+        'case_sensitive': False,
+        'env_prefix': '',
+    }
 
 
 class Settings(BaseModel):

@@ -2,8 +2,9 @@
 
 from enum import Enum
 from datetime import datetime
-from typing import List, Dict, Optional
-from pydantic import BaseModel, Field
+from typing import List, Dict, Optional, Union, Literal
+from pydantic import BaseModel, Field, field_validator
+from dataclasses import dataclass
 
 class Frequency(str, Enum):
     """Investment frequency options."""
@@ -52,4 +53,53 @@ class BacktestResult(BaseModel):
     dip_buys: int
     peak_sells: int
     portfolio_value_history: Dict[str, List]
-    trades: List[Trade] 
+    trades: List[Trade]
+
+
+# Enhanced Models for Live Execution
+
+@dataclass
+class TransactionReceipt:
+    """Structured transaction result."""
+    tx_hash: str
+    status: str
+    gas_used: int
+    gas_cost_usd: float
+
+
+class TestnetDCAPlan(DCAPlan):
+    """Testnet-specific DCA plan with validation."""
+    wallet_address: Optional[str] = Field(None, description="Connected wallet address")
+    target_token_address: str = Field(..., description="Token to buy (contract address)")
+    funding_token_address: str = Field(..., description="Token to spend (contract address)")
+    max_gas_percentage: float = Field(1.0, gt=0, le=5.0, description="Max gas as % of tx value")
+    daily_spend_limit: float = Field(1000.0, gt=0, le=10000.0, description="Daily spend limit USD")
+    network: Literal["base-sepolia"] = "base-sepolia"
+    
+    @field_validator('max_gas_percentage')
+    @classmethod
+    def validate_gas_percentage(cls, v: float) -> float:
+        if not 0 < v <= 5.0:
+            raise ValueError('Gas percentage must be between 0-5%')
+        return v
+    
+    @field_validator('daily_spend_limit')
+    @classmethod
+    def validate_spend_limit(cls, v: float) -> float:
+        if not 0 < v <= 10000.0:
+            raise ValueError('Daily spend limit must be between $1-$10,000')
+        return v
+
+
+class MainnetDCAPlan(DCAPlan):
+    """Mainnet-specific plan (future use)."""
+    wallet_address: Optional[str] = Field(None, description="Connected wallet address")
+    target_token_address: str = Field(..., description="Token to buy (contract address)")
+    funding_token_address: str = Field(..., description="Token to spend (contract address)")
+    max_gas_percentage: float = Field(0.5, gt=0, le=2.0, description="Max gas as % of tx value")
+    daily_spend_limit: float = Field(500.0, gt=0, le=5000.0, description="Daily spend limit USD")
+    network: Literal["base-mainnet"] = "base-mainnet"
+
+
+# Union type for live DCA plans
+LiveDCAPlan = Union[TestnetDCAPlan, MainnetDCAPlan] 

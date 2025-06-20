@@ -15,6 +15,8 @@ from dca_backtester.utils.ai_insights import get_ai_insights
 from dca_backtester.client.google_drive import GoogleDriveClient
 from dca_backtester.client.cryptocompare import CryptoCompareClient
 from dca_backtester.ai_analysis import BacktestAnalyzer
+from dca_backtester.ui.live_execution import render_live_execution_tab
+
 
 def show_rate_limit_message(retry_after: int):
     """Show a user-friendly rate limit message with countdown."""
@@ -32,6 +34,7 @@ def show_rate_limit_message(retry_after: int):
     countdown_placeholder.empty()
     st.info("🔄 Retrying now...")
 
+
 def show_api_cooldown_message(days: int):
     """Show a user-friendly message about API cooldown period."""
     st.warning(f"""
@@ -43,20 +46,12 @@ def show_api_cooldown_message(days: int):
     Please be patient while we gather the historical data...
     """)
 
-def main():
-    """Main function to run the Streamlit app."""
-    # Set page config
-    st.set_page_config(
-        page_title="DCA Backtester",
-        page_icon="📈",
-        layout="wide"
-    )
 
-    # Title and description
-    st.title("DCA Backtester")
+def render_backtesting_tab():
+    """Render the backtesting interface."""
+    st.header("📊 Strategy Backtesting")
     st.markdown("""
-    This tool helps you backtest Dollar-Cost Averaging (DCA) strategies for cryptocurrencies.
-    Enter your strategy parameters below and click 'Run Backtest' to see the results.
+    Test your DCA strategy against historical data to understand potential performance.
     """)
 
     # Sidebar for configuration
@@ -432,5 +427,31 @@ def main():
     </div>
     """, unsafe_allow_html=True)
 
+
+def app():
+    """Main function to run the Streamlit app."""
+    # Set page config
+    st.set_page_config(
+        page_title="DCA Backtester & Live Execution",
+        page_icon="📈",
+        layout="wide"
+    )
+
+    # Title and description
+    st.title("DCA Backtester & Live Execution")
+    st.markdown("""
+    **Backtest** your DCA strategies with historical data or **execute them live** on Base Sepolia testnet.
+    """)
+
+    # Create tabs for different modes
+    tab1, tab2 = st.tabs(["📊 Backtesting", "🔴 Live Execution"])
+    
+    with tab1:
+        render_backtesting_tab()
+        
+    with tab2:
+        render_live_execution_tab()
+
+
 if __name__ == "__main__":
-    main() 
+    app()
