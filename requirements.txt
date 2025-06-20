@@ -2,6 +2,15 @@ streamlit==1.32.0
 pandas==2.2.1
 plotly==5.19.0
 pydantic>=2.10.0
+pydantic-settings>=2.0.0
+pycoingecko>=3.1.0
 requests==2.31.0
 openai==1.12.0
-python-dotenv==1.0.1 
+python-dotenv==1.0.1
+tenacity>=8.2.0
+web3>=6.15.0
+eth-account>=0.8.0
+
+# Optional: CDP AgentKit (for live execution)
+# Uncomment the line below if you want live execution capabilities
+# cdp-sdk>=1.0.0 

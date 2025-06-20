@@ -54,6 +54,10 @@ class AgentKitSettings(BaseSettings):
     cdp_api_key_id: Optional[str] = Field(None, description="CDP API Key ID")
     cdp_private_key: Optional[str] = Field(None, description="CDP Private Key")
     
+    # Existing API Keys (for backward compatibility)
+    cryptocompare_api_key: Optional[str] = Field(None, description="CryptoCompare API Key")
+    openai_api_key: Optional[str] = Field(None, description="OpenAI API Key")
+    
     # Network Configuration
     base_sepolia_rpc_url: str = Field("https://sepolia.base.org", description="Base Sepolia RPC URL")
     chain_id: int = Field(84532, description="Base Sepolia Chain ID")
@@ -67,6 +71,7 @@ class AgentKitSettings(BaseSettings):
         'env_file': '.env',
         'case_sensitive': False,
         'env_prefix': '',
+        'extra': 'ignore',  # Ignore extra fields instead of raising an error
     }
 
 
