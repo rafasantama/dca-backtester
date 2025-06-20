@@ -2,35 +2,75 @@
 
 import streamlit as st
 import asyncio
+from datetime import datetime
 from typing import Optional, Dict, Any
 
 from ..config import AgentKitSettings
 from ..models import TestnetDCAPlan
+from ..services.base_agent import BaseAgentService
 from ..services.mocks import MockBaseAgentService, MockWalletManager
 from ..exceptions import AgentError
 from .state_manager import LiveExecutionState
 
 
 def render_network_status() -> bool:
-    """Render network status indicator."""
+    """Render network status indicator with real network data."""
     st.subheader("🌐 Network Status")
     
-    # Mock network check (will be real in Phase 7.2)
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.success("✅ Base Sepolia")
-        st.caption("Chain ID: 84532")
+    try:
+        # Get real network status
+        settings = AgentKitSettings()
+        agent = BaseAgentService(settings)
         
-    with col2:
-        st.success("✅ RPC Connected")
-        st.caption("https://sepolia.base.org")
+        # Use asyncio to run async function
+        network_status = asyncio.run(agent.get_network_status())
         
-    with col3:
-        st.info("⚠️ Testnet Mode")
-        st.caption("Using test tokens")
+        col1, col2, col3, col4 = st.columns(4)
         
-    return True
+        with col1:
+            if network_status["network"]["connected"]:
+                st.success("✅ Base Sepolia")
+                st.caption(f"Chain ID: {network_status['network']['chain_id']}")
+            else:
+                st.error("❌ Not Connected")
+                st.caption("Check RPC connection")
+                
+        with col2:
+            st.success("✅ RPC Connected")
+            st.caption("https://sepolia.base.org")
+            if "latest_block" in network_status["network"]:
+                st.caption(f"Block: {network_status['network']['latest_block']}")
+                
+        with col3:
+            st.metric("ETH Price", f"${network_status['eth_price_usd']:,.0f}")
+            st.caption("Live from CoinGecko")
+            
+        with col4:
+            gas_price = network_status["gas_estimates"]["gas_price_gwei"]
+            st.metric("Gas Price", f"{gas_price:.1f} gwei")
+            st.caption("Current network fee")
+        
+        return network_status["network"]["connected"]
+        
+    except Exception as e:
+        st.error(f"Network status error: {str(e)}")
+        
+        # Fallback to basic status
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.warning("⚠️ Base Sepolia")
+            st.caption("Chain ID: 84532")
+            
+        with col2:
+            st.warning("⚠️ RPC Status Unknown")
+            st.caption("https://sepolia.base.org")
+            
+        with col3:
+            st.info("🧪 Testnet Mode")
+            st.caption("Using test tokens")
+            
+        return False
 
 
 def render_wallet_connection() -> Optional[str]:
@@ -62,24 +102,36 @@ def render_wallet_connection() -> Optional[str]:
         wallet_options = ["MetaMask", "Coinbase Wallet", "WalletConnect"]
         selected_wallet = st.selectbox("Select Wallet", wallet_options)
         
-        if st.button(f"Connect {selected_wallet}"):
-            with st.spinner("Connecting wallet..."):
-                try:
-                    # Use mock wallet manager for Phase 7.1
-                    wallet_manager = MockWalletManager()
-                    wallet_address = asyncio.run(
-                        wallet_manager.connect_wallet("metamask")
-                    )
-                    
-                    if wallet_address:
-                        LiveExecutionState.save_wallet_state(wallet_address, "base-sepolia")
-                        st.success(f"✅ Connected: {wallet_address}")
-                        st.rerun()
-                    else:
-                        st.error("Failed to connect wallet")
+        # Manual wallet address input for Base Sepolia testnet
+        st.write("**Manual Connection (Base Sepolia)**")
+        wallet_address_input = st.text_input(
+            "Enter your wallet address:",
+            placeholder="0x1234567890123456789012345678901234567890",
+            help="Enter your Base Sepolia wallet address to connect"
+        )
+        
+        if st.button(f"Connect Wallet"):
+            if wallet_address_input:
+                with st.spinner("Verifying wallet connection..."):
+                    try:
+                        # Use real agent service to verify wallet
+                        settings = AgentKitSettings()
+                        agent = BaseAgentService(settings)
                         
-                except Exception as e:
-                    st.error(f"Connection failed: {str(e)}")
+                        # Verify wallet connection
+                        is_connected = asyncio.run(agent.connect_wallet(wallet_address_input))
+                        
+                        if is_connected:
+                            LiveExecutionState.save_wallet_state(wallet_address_input, "base-sepolia")
+                            st.success(f"✅ Connected: {wallet_address_input[:6]}...{wallet_address_input[-4:]}")
+                            st.rerun()
+                        else:
+                            st.error("Failed to verify wallet")
+                            
+                    except Exception as e:
+                        st.error(f"Connection failed: {str(e)}")
+            else:
+                st.warning("Please enter a valid wallet address")
                     
         return None
 
@@ -182,31 +234,57 @@ def render_dca_plan_config() -> Optional[TestnetDCAPlan]:
 
 
 def render_risk_dashboard() -> None:
-    """Render risk management dashboard."""
+    """Render risk management dashboard with real data."""
     st.subheader("🛡️ Risk Management")
     
-    # Mock data for Phase 7.1
-    settings = AgentKitSettings()
-    mock_agent = MockBaseAgentService(settings)
-    
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        current_spend = mock_agent.spend_tracker.get_current_spend()
-        max_spend = settings.max_daily_spend_usd
-        spend_percentage = (current_spend / max_spend) * 100
+    try:
+        # Get real risk data
+        settings = AgentKitSettings()
+        agent = BaseAgentService(settings)
+        network_status = asyncio.run(agent.get_network_status())
+        spend_limits = network_status["spend_limits"]
         
-        st.metric("24h Spending", f"${current_spend:.2f}", f"{spend_percentage:.1f}%")
-        st.progress(spend_percentage / 100)
+        col1, col2, col3 = st.columns(3)
         
-    with col2:
-        st.metric("Daily Limit", f"${max_spend:.2f}", "Remaining")
-        remaining = max_spend - current_spend
-        st.write(f"💰 ${remaining:.2f} available")
+        with col1:
+            current_spend = spend_limits["current_spend_usd"]
+            max_spend = spend_limits["daily_limit_usd"]
+            spend_percentage = (current_spend / max_spend) * 100 if max_spend > 0 else 0
+            
+            st.metric("24h Spending", f"${current_spend:.2f}", f"{spend_percentage:.1f}%")
+            st.progress(min(spend_percentage / 100, 1.0))
+            
+        with col2:
+            remaining = spend_limits["remaining_usd"]
+            st.metric("Daily Limit", f"${max_spend:.2f}", f"${remaining:.2f} left")
+            if remaining < max_spend * 0.2:  # Warning if less than 20% remaining
+                st.warning("⚠️ Approaching daily limit")
+            else:
+                st.write(f"💰 ${remaining:.2f} available")
+            
+        with col3:
+            st.metric("Gas Limit", f"{settings.max_gas_percentage}%", "Max per TX")
+            gas_price = network_status["gas_estimates"]["gas_price_gwei"]
+            st.write(f"🔥 Current: {gas_price:.1f} gwei")
+            
+    except Exception as e:
+        st.error(f"Risk dashboard error: {str(e)}")
         
-    with col3:
-        st.metric("Gas Limit", f"{settings.max_gas_percentage}%", "Max per TX")
-        st.write("🔥 Dynamic pricing")
+        # Fallback to basic display
+        settings = AgentKitSettings()
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.metric("24h Spending", "$0.00", "0.0%")
+            st.progress(0.0)
+            
+        with col2:
+            st.metric("Daily Limit", f"${settings.max_daily_spend_usd:.2f}", "Available")
+            st.write(f"💰 ${settings.max_daily_spend_usd:.2f} available")
+            
+        with col3:
+            st.metric("Gas Limit", f"{settings.max_gas_percentage}%", "Max per TX")
+            st.write("🔥 Network unavailable")
         
     # Spending history chart (mock data)
     if st.checkbox("📊 Show Spending History"):
@@ -306,26 +384,52 @@ def render_live_execution_tab() -> None:
         if st.button("▶️ Execute DCA Buy", type="primary"):
             with st.spinner("Executing DCA buy..."):
                 try:
-                    # Mock execution for Phase 7.1
+                    # Get plan and wallet state
                     plan_state = LiveExecutionState.load_plan_state()
-                    if plan_state:
-                        settings = AgentKitSettings()
-                        mock_agent = MockBaseAgentService(settings)
-                        
-                        # Create plan from state
-                        plan = TestnetDCAPlan(**plan_state)
-                        
-                        # Execute mock transaction
-                        receipt = asyncio.run(
-                            mock_agent.execute_dca_buy(plan, plan.amount)
-                        )
-                        
-                        st.success(f"✅ Transaction successful!")
-                        st.code(f"TX: {receipt.tx_hash}")
-                        st.write(f"💰 Gas cost: ${receipt.gas_cost_usd:.2f}")
-                        
-                    else:
+                    wallet_state = LiveExecutionState.load_wallet_state()
+                    
+                    if not plan_state:
                         st.error("Please configure your DCA plan first")
+                        return
+                        
+                    if not wallet_state:
+                        st.error("Please connect your wallet first")
+                        return
+                    
+                    # Use real agent service for execution
+                    settings = AgentKitSettings()
+                    agent = BaseAgentService(settings)
+                    
+                    # Create plan from state
+                    plan = TestnetDCAPlan(**plan_state)
+                    
+                    # Execute real transaction
+                    receipt = asyncio.run(
+                        agent.execute_dca_buy(plan, plan.amount)
+                    )
+                    
+                    st.success(f"✅ Transaction successful!")
+                    
+                    # Display transaction details
+                    col_a, col_b = st.columns(2)
+                    with col_a:
+                        st.code(f"TX: {receipt.tx_hash[:20]}...")
+                        st.write(f"💰 Amount: ${plan.amount:.2f}")
+                    with col_b:
+                        st.write(f"⛽ Gas: ${receipt.gas_cost_usd:.4f}")
+                        st.write(f"🎯 Target: {plan.symbol}")
+                    
+                    # Update execution state
+                    execution_data = LiveExecutionState.load_execution_state() or {"transactions": []}
+                    execution_data["transactions"].append({
+                        "tx_hash": receipt.tx_hash,
+                        "amount_usd": plan.amount,
+                        "target_asset": plan.symbol,
+                        "gas_cost_usd": receipt.gas_cost_usd,
+                        "timestamp": str(datetime.now()),
+                        "status": receipt.status
+                    })
+                    LiveExecutionState.save_execution_state(execution_data)
                         
                 except AgentError as e:
                     st.error(f"Execution failed: {str(e)}")

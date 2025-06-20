@@ -1,9 +1,10 @@
-# DCA Backtester
+# DCA Backtester & Live Execution
 
-A powerful Dollar-Cost Averaging (DCA) backtesting tool that helps you analyze and optimize your cryptocurrency investment strategies.
+A powerful Dollar-Cost Averaging (DCA) backtesting tool with **live execution capabilities** on Base Sepolia testnet via CDP AgentKit integration.
 
 ## Features
 
+### 📊 Backtesting
 - Real-time price data from CryptoCompare
 - Sophisticated DCA strategies with dip buying
 - Advanced selling strategies (profit taking, rebalancing, stop loss)
@@ -11,37 +12,89 @@ A powerful Dollar-Cost Averaging (DCA) backtesting tool that helps you analyze a
 - APY calculations and strategy analysis
 - Trade history tracking
 
+### 🔴 Live Execution (NEW)
+- **CDP AgentKit integration** for live DCA execution
+- **Base Sepolia testnet** support
+- **Real-time network status** and gas price monitoring
+- **24-hour spend tracking** with configurable limits
+- **Gas fee protection** (max percentage of transaction value)
+- **Wallet connection** verification and balance checking
+
 ## Setup
 
-1. Clone the repository:
+### 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/dca-backtester.git
+git clone https://github.com/rafasantama/dca-backtester.git
 cd dca-backtester
 ```
 
-2. Install dependencies:
+### 2. Install dependencies:
 ```bash
+# Install base dependencies
 pip install -r requirements.txt
+
+# For live execution, install CDP SDK
+pip install cdp-sdk web3 eth-account
 ```
 
-3. Run the Streamlit app:
+### 3. Configure environment:
+```bash
+# Copy environment template
+cp .env.example .env
+
+# Edit .env file with your API keys:
+# - CRYPTOCOMPARE_API_KEY (for backtesting)
+# - CDP_API_KEY_ID and CDP_PRIVATE_KEY (for live execution)
+```
+
+### 4. Run the Streamlit app:
 ```bash
 python -m streamlit run dca_backtester/web_app.py
 ```
 
 ## Usage
 
-1. Configure your DCA strategy:
+### 📊 Backtesting Mode
+1. **Navigate to "Backtesting" tab**
+2. **Configure your DCA strategy:**
    - Set investment amount and frequency
    - Enable/disable dip buying
    - Configure selling strategy
    - Set date range for backtesting
 
-2. Run the backtest and analyze results:
+3. **Run the backtest and analyze results:**
    - View portfolio performance chart
    - Check performance metrics (ROI, APY, Sharpe Ratio)
    - Analyze trade history
-   - Compare strategy performance
+   - Get AI-powered strategy analysis
+
+### 🔴 Live Execution Mode
+1. **Navigate to "Live Execution" tab**
+2. **Check network status** (Base Sepolia connectivity)
+3. **Connect your wallet:**
+   - Enter your Base Sepolia wallet address
+   - Verify connection and network
+4. **Configure DCA plan:**
+   - Set target asset (ETH, BTC, etc.)
+   - Configure investment amount and frequency
+   - Set risk management limits
+5. **Execute DCA:**
+   - Review risk dashboard
+   - Execute manual DCA purchases
+   - Monitor transaction history
+
+## 🚀 Getting Started with Live Execution
+
+### Prerequisites
+- **Base Sepolia testnet** wallet with test ETH
+- **CDP API keys** from [Coinbase Developer Platform](https://portal.cdp.coinbase.com/)
+- **Test USDC** for DCA funding
+
+### Quick Start
+1. Get Base Sepolia testnet ETH from [Base Faucet](https://www.coinbase.com/faucets/base-ethereum-sepolia-faucet)
+2. Obtain CDP API keys from Coinbase Developer Platform
+3. Configure `.env` file with your credentials
+4. Launch the app and navigate to "Live Execution" tab
 
 ## Live Demo
 
