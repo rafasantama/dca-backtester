@@ -395,8 +395,8 @@ def render_backtesting_tab():
                 st.info("No trades were executed during this period.")
 
             # AI Analysis Section
-            st.subheader("AI Strategy Review")
-            with st.spinner("Analyzing results with AI..."):
+            st.subheader("🤖 AI Strategy Review")
+            with st.spinner("🧠 Analyzing results with AI..."):
                 analyzer = BacktestAnalyzer()
                 # Prepare results for AI with all relevant metrics
                 ai_input = {
@@ -414,7 +414,11 @@ def render_backtesting_tab():
                     'avg_trade_size': results.total_invested / results.number_of_trades if results.number_of_trades > 0 else 0
                 }
                 ai_review = analyzer.analyze_results(ai_input)
-                st.success(ai_review)
+                
+                # Display AI review with proper markdown formatting
+                st.markdown("---")
+                st.markdown(ai_review)
+                st.markdown("---")
 
         except Exception as e:
             st.error(f"Error running backtest: {str(e)}")

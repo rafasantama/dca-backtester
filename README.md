@@ -376,15 +376,67 @@ st.plotly_chart(fig)
 ```
 
 ### User Experience Flow
-Below is a mermaid flow graph illustrating the user experience steps:
+Below is a mermaid flow graph illustrating the current user experience with both backtesting and live execution modes:
 
 ```mermaid
-graph TD;
-    A[User Opens Web App] --> B[Input DCA Plan Parameters];
-    B --> C[Run Backtest];
-    C --> D[View Results];
-    D --> E[Visualize Portfolio Value];
-    E --> F[End];
+graph TD
+    A[🚀 User Opens Web App] --> B{Choose Mode}
+    
+    B -->|📊 Backtesting Tab| C[Configure DCA Strategy]
+    C --> C1[Set Investment Amount & Frequency]
+    C1 --> C2[Enable/Disable Dip Buying]
+    C2 --> C3[Configure Selling Strategy]
+    C3 --> C4[Set Date Range]
+    C4 --> D[▶️ Run Backtest]
+    D --> E[📈 View Performance Charts]
+    E --> F[📊 Analyze Metrics]
+    F --> G[🤖 AI Strategy Review]
+    G --> H[📋 Review Trade History]
+    H --> I[💡 Get Recommendations]
+    
+    B -->|🔴 Live Execution Tab| J[🌐 Check Network Status]
+    J --> J1{Network Connected?}
+    J1 -->|❌ No| J2[⚠️ Show Connection Error]
+    J1 -->|✅ Yes| K[👛 Wallet Connection]
+    
+    K --> K1{Wallet Mode?}
+    K1 -->|🧪 Mock Mode| L1[Enter Any Valid Address]
+    K1 -->|🔴 Live CDP Mode| L2[Connect Real Wallet]
+    
+    L1 --> M[⚙️ Configure DCA Plan]
+    L2 --> L3[💰 Fund Wallet with Base ETH]
+    L3 --> M
+    
+    M --> M1[🎯 Set Target Asset]
+    M1 --> M2[💵 Set Investment Amount]
+    M2 --> M3[🛡️ Configure Risk Limits]
+    M3 --> N[🔍 Review Risk Dashboard]
+    N --> O[▶️ Execute DCA Buy]
+    
+    O --> O1{Mock or Live?}
+    O1 -->|🧪 Mock| P1[✅ Simulate Transaction]
+    O1 -->|🔴 Live| P2[🚀 Execute Real Transaction]
+    
+    P1 --> Q[📊 View Results]
+    P2 --> P3[🔗 Monitor on Base Explorer]
+    P3 --> Q
+    
+    Q --> R[📈 Track Performance]
+    R --> S{Continue Trading?}
+    S -->|Yes| O
+    S -->|No| T[🎉 Complete]
+    
+    I --> T
+    
+    J2 --> U[🔄 Retry Connection]
+    U --> J
+    
+    style A fill:#e1f5fe
+    style B fill:#fff3e0
+    style D fill:#e8f5e8
+    style G fill:#f3e5f5
+    style O fill:#ffebee
+    style T fill:#e8f5e8
 ```
 
 ### Conclusion
