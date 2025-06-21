@@ -51,8 +51,14 @@ def render_network_status() -> bool:
             
         with col4:
             gas_price = network_status["gas_estimates"]["gas_price_gwei"]
-            st.metric("Gas Price", f"{gas_price:.1f} gwei")
-            st.caption("Current network fee")
+            # Format gas price with appropriate precision for Base network's low fees
+            if gas_price < 1.0:
+                gas_display = f"{gas_price:.3f} gwei"
+                st.caption("Base network (optimized L2 fees)")
+            else:
+                gas_display = f"{gas_price:.1f} gwei"
+                st.caption("Current network fee")
+            st.metric("Gas Price", gas_display)
         
         return network_status["network"]["connected"]
         
@@ -269,7 +275,12 @@ def render_risk_dashboard() -> None:
         with col3:
             st.metric("Gas Limit", f"{settings.max_gas_percentage}%", "Max per TX")
             gas_price = network_status["gas_estimates"]["gas_price_gwei"]
-            st.write(f"🔥 Current: {gas_price:.1f} gwei")
+            # Format gas price with appropriate precision for Base network's low fees
+            if gas_price < 1.0:
+                gas_display = f"{gas_price:.3f} gwei"
+            else:
+                gas_display = f"{gas_price:.1f} gwei"
+            st.write(f"🔥 Current: {gas_display}")
             
     except Exception as e:
         st.error(f"Risk dashboard error: {str(e)}")
