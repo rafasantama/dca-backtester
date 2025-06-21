@@ -16,11 +16,17 @@ load_dotenv()
 class BacktestAnalyzer:
     def __init__(self):
         self.api_key = os.getenv('OPENAI_API_KEY')
+        self.client = None
         if not self.api_key:
-            logger.error("OPENAI_API_KEY not found in environment variables")
-            raise ValueError("OPENAI_API_KEY not found in environment variables")
-        self.client = OpenAI(api_key=self.api_key)
-        logger.info("Successfully initialized OpenAI API key")
+            logger.warning("OPENAI_API_KEY not found in environment variables")
+            logger.info("AI analysis will be disabled - consider setting OPENAI_API_KEY for enhanced insights")
+        else:
+            try:
+                self.client = OpenAI(api_key=self.api_key)
+                logger.info("Successfully initialized OpenAI API key")
+            except Exception as e:
+                logger.error(f"Failed to initialize OpenAI client: {e}")
+                self.client = None
 
     def analyze_results(self, backtest_results: Dict[str, Any]) -> str:
         """
@@ -32,6 +38,9 @@ class BacktestAnalyzer:
         Returns:
             str: Critical analysis of the backtesting results
         """
+        if not self.client:
+            return self._generate_fallback_analysis(backtest_results)
+            
         logger.info("🤖 Starting analysis of backtest results")
         
         # Extract relevant metrics
@@ -121,4 +130,85 @@ class BacktestAnalyzer:
             
         except Exception as e:
             logger.error(f"🚨 Error in OpenAI API call: {str(e)}")
-            return f"Error analyzing results: {str(e)}" 
+            return self._generate_fallback_analysis(backtest_results)
+    
+    def _generate_fallback_analysis(self, backtest_results: Dict[str, Any]) -> str:
+        """Generate a basic analysis without OpenAI API."""
+        try:
+            metrics = {
+                'roi': backtest_results.get('roi', 0),
+                'apy': backtest_results.get('apy', 0),
+                'volatility': backtest_results.get('volatility', 0),
+                'sharpe_ratio': backtest_results.get('sharpe_ratio', 0),
+                'total_investment': backtest_results.get('total_investment', 0),
+                'final_value': backtest_results.get('final_value', 0),
+                'number_of_trades': backtest_results.get('number_of_trades', 0),
+                'dip_buys': backtest_results.get('dip_buys', 0),
+                'peak_sells': backtest_results.get('peak_sells', 0)
+            }
+            
+            analysis = []
+            analysis.append("## 📊 Strategy Analysis (Basic Mode)")
+            analysis.append("*Note: For enhanced AI-powered insights, set your OPENAI_API_KEY environment variable.*\n")
+            
+            # Performance vs benchmarks
+            analysis.append("### 📈 Performance Summary")
+            if metrics['roi'] > 0:
+                analysis.append(f"✅ **Positive Return**: Your strategy generated a {metrics['roi']:.1f}% return (APY: {metrics['apy']:.1f}%)")
+            else:
+                analysis.append(f"❌ **Negative Return**: Your strategy resulted in a {abs(metrics['roi']):.1f}% loss (APY: {metrics['apy']:.1f}%)")
+            
+            # Benchmark comparisons
+            analysis.append("\n### 🏦 Benchmark Comparison")
+            if metrics['apy'] > 10:
+                analysis.append(f"🎯 Your APY ({metrics['apy']:.1f}%) outperformed the S&P 500 average (~10-11%)")
+            elif metrics['apy'] > 5:
+                analysis.append(f"📊 Your APY ({metrics['apy']:.1f}%) exceeded high-yield savings rates (~4-5%)")
+            elif metrics['apy'] > 0:
+                analysis.append(f"⚠️ Your APY ({metrics['apy']:.1f}%) was positive but below traditional benchmarks")
+            else:
+                analysis.append(f"🚨 Your APY ({metrics['apy']:.1f}%) underperformed all traditional investments")
+            
+            # Risk assessment
+            analysis.append("\n### ⚠️ Risk Assessment")
+            if metrics['volatility'] > 50:
+                analysis.append(f"🌊 **High Volatility**: {metrics['volatility']:.1f}% - Significantly higher than traditional investments")
+            elif metrics['volatility'] > 30:
+                analysis.append(f"📊 **Moderate Volatility**: {metrics['volatility']:.1f}% - Typical for crypto investments")
+            else:
+                analysis.append(f"🛡️ **Lower Volatility**: {metrics['volatility']:.1f}% - Relatively stable for crypto")
+            
+            if metrics['sharpe_ratio'] > 1:
+                analysis.append(f"✅ **Good Risk-Adjusted Return**: Sharpe ratio of {metrics['sharpe_ratio']:.2f}")
+            elif metrics['sharpe_ratio'] > 0:
+                analysis.append(f"📊 **Moderate Risk-Adjusted Return**: Sharpe ratio of {metrics['sharpe_ratio']:.2f}")
+            else:
+                analysis.append(f"❌ **Poor Risk-Adjusted Return**: Sharpe ratio of {metrics['sharpe_ratio']:.2f}")
+            
+            # Strategy effectiveness
+            analysis.append("\n### 🎯 Strategy Effectiveness")
+            analysis.append(f"• **Total Trades**: {metrics['number_of_trades']}")
+            analysis.append(f"• **Dip Buys**: {metrics['dip_buys']} (buying opportunities during price drops)")
+            analysis.append(f"• **Peak Sells**: {metrics['peak_sells']} (profit-taking during price increases)")
+            
+            # Quick recommendations
+            analysis.append("\n### 💡 Quick Recommendations")
+            if metrics['roi'] < 0:
+                analysis.append("• Consider adjusting your investment frequency or amounts")
+                analysis.append("• Review the cryptocurrency selection - some assets may be more suitable for DCA")
+                analysis.append("• Evaluate if dip buying thresholds need adjustment")
+            elif metrics['volatility'] > 60:
+                analysis.append("• Consider reducing position sizes to manage high volatility")
+                analysis.append("• Implement more conservative risk management settings")
+            elif metrics['sharpe_ratio'] < 0.5:
+                analysis.append("• Focus on improving risk-adjusted returns")
+                analysis.append("• Consider adjusting the strategy to reduce risk while maintaining returns")
+            
+            analysis.append("\n---")
+            analysis.append("*💡 **Tip**: Set your OPENAI_API_KEY for detailed AI-powered analysis with specific recommendations and market context.*")
+            
+            return "\n".join(analysis)
+            
+        except Exception as e:
+            logger.error(f"Error in fallback analysis: {e}")
+            return "**Analysis Error**: Unable to generate analysis. Please check your backtest results and try again." 
