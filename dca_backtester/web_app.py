@@ -8,14 +8,14 @@ from plotly.subplots import make_subplots
 import time
 import os
 
-from dca_backtester.models import DCAPlan, Frequency
-from dca_backtester.backtester import DCABacktester, BacktestResult
-from dca_backtester.client.coingecko import CoinGeckoClient, CoinGeckoRateLimitError, SYMBOL_TO_ID
-from dca_backtester.utils.ai_insights import get_ai_insights
-from dca_backtester.client.google_drive import GoogleDriveClient
-from dca_backtester.client.cryptocompare import CryptoCompareClient
-from dca_backtester.ai_analysis import BacktestAnalyzer
-from dca_backtester.ui.live_execution import render_live_execution_tab
+from .models import DCAPlan, Frequency
+from .backtester import DCABacktester, BacktestResult
+from .client.coingecko import CoinGeckoClient, CoinGeckoRateLimitError, SYMBOL_TO_ID
+from .utils.ai_insights import get_ai_insights
+from .client.google_drive import GoogleDriveClient
+from .client.cryptocompare import CryptoCompareClient
+from .ai_analysis import BacktestAnalyzer
+from .ui.live_execution import render_live_execution_tab
 
 
 def show_rate_limit_message(retry_after: int):

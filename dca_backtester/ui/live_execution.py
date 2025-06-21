@@ -36,10 +36,14 @@ def render_network_status() -> bool:
                 st.caption("Check RPC connection")
                 
         with col2:
-            st.success("✅ RPC Connected")
-            st.caption("https://sepolia.base.org")
-            if "latest_block" in network_status["network"]:
-                st.caption(f"Block: {network_status['network']['latest_block']}")
+            if network_status["network"]["connected"]:
+                st.success("✅ RPC Connected")
+                st.caption("https://sepolia.base.org")
+                if "latest_block" in network_status["network"]:
+                    st.caption(f"Block: {network_status['network']['latest_block']}")
+            else:
+                st.error("❌ RPC Disconnected")
+                st.caption("https://sepolia.base.org")
                 
         with col3:
             st.metric("ETH Price", f"${network_status['eth_price_usd']:,.0f}")

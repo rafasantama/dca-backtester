@@ -13,7 +13,7 @@ eth-account>=0.8.0
 
 # Optional: CDP AgentKit (for live execution)
 # Uncomment the line below if you want live execution capabilities
-# cdp-sdk>=1.0.0
+cdp-sdk>=1.0.0
 
 # Development dependencies
 pytest>=8.0.0
