@@ -30,26 +30,34 @@ cd dca-backtester
 
 ### 2. Install dependencies:
 ```bash
-# Install base dependencies
+# Option A: Using Poetry (recommended)
+poetry install
+
+# Option B: Using pip
 pip install -r requirements.txt
 
-# For live execution, install CDP SDK
+# For live CDP execution, install additional dependencies
+poetry install --with live
+# OR with pip:
 pip install cdp-sdk web3 eth-account
 ```
 
-### 3. Configure environment:
-```bash
-# Copy environment template
-cp .env.example .env
+### 3. Quick Start - Choose Your Mode:
 
-# Edit .env file with your API keys:
-# - CRYPTOCOMPARE_API_KEY (for backtesting)
-# - CDP_API_KEY_ID and CDP_PRIVATE_KEY (for live execution)
+**🧪 Mock Testing (No Setup Required)**
+```bash
+# Run immediately with simulated transactions
+streamlit run dca_backtester/web_app.py
 ```
 
-### 4. Run the Streamlit app:
+**🔴 Live CDP Execution (Requires Setup)**
 ```bash
-python -m streamlit run dca_backtester/web_app.py
+# 1. Configure environment
+cp .env.example .env
+# Edit .env with CDP_API_KEY_ID and CDP_PRIVATE_KEY
+
+# 2. Run with live CDP integration
+streamlit run dca_backtester/web_app.py
 ```
 
 ## Usage
@@ -69,32 +77,195 @@ python -m streamlit run dca_backtester/web_app.py
    - Get AI-powered strategy analysis
 
 ### 🔴 Live Execution Mode
-1. **Navigate to "Live Execution" tab**
-2. **Check network status** (Base Sepolia connectivity)
-3. **Connect your wallet:**
-   - Enter your Base Sepolia wallet address
-   - Verify connection and network
-4. **Configure DCA plan:**
-   - Set target asset (ETH, BTC, etc.)
-   - Configure investment amount and frequency
-   - Set risk management limits
-5. **Execute DCA:**
-   - Review risk dashboard
-   - Execute manual DCA purchases
-   - Monitor transaction history
 
-## 🚀 Getting Started with Live Execution
+#### Mock Mode (Instant Testing)
+1. **Navigate to "Live Execution" tab**
+2. **Connect mock wallet:**
+   - Use any valid address format: `0x1234567890123456789012345678901234567890`
+   - System automatically uses simulated services
+3. **Configure DCA plan and execute:**
+   - All transactions are simulated
+   - No real funds required
+   - Perfect for testing UI and workflow
+
+#### Live CDP Mode (Real Transactions)
+1. **Navigate to "Live Execution" tab** 
+2. **Check network status** (Base Sepolia connectivity)
+3. **Setup CDP credentials** in `.env` file
+4. **Connect wallet:**
+   - Create new CDP wallet automatically, OR
+   - Enter existing Base Sepolia wallet address
+5. **Fund wallet** with Base Sepolia ETH (see funding guide below)
+6. **Configure DCA plan:**
+   - Set target asset (ETH, BTC, etc.)
+   - Configure investment amount and frequency  
+   - Set risk management limits
+7. **Execute real DCA:**
+   - Review risk dashboard
+   - Execute actual blockchain transactions
+   - Monitor on Base Sepolia Explorer
+
+## 🧪 Testing Modes
+
+### Option 1: Mock Testing (No Real Funds)
+Test the complete DCA workflow with simulated transactions - perfect for development and demo purposes.
+
+```bash
+# 1. Install dependencies
+poetry install
+
+# 2. Run with mock services (no .env needed)
+streamlit run dca_backtester/web_app.py
+
+# 3. Navigate to "Live Execution" tab
+# 4. Use any valid-format wallet address (e.g., 0x1234567890123456789012345678901234567890)
+# 5. Configure DCA plan and execute - all transactions are simulated
+```
+
+**Mock Mode Features:**
+- ✅ Simulated network status and gas prices
+- ✅ Mock wallet creation and balance checking
+- ✅ Fake transaction execution with realistic delays
+- ✅ Complete UI workflow testing
+- ✅ No real funds or API keys required
+
+### Option 2: Live CDP Testing (Real Base Sepolia)
+Execute actual DCA transactions on Base Sepolia testnet using real CDP wallets.
+
+## 🚀 Getting Started with Live CDP Execution
 
 ### Prerequisites
-- **Base Sepolia testnet** wallet with test ETH
 - **CDP API keys** from [Coinbase Developer Platform](https://portal.cdp.coinbase.com/)
-- **Test USDC** for DCA funding
+- **Base Sepolia testnet ETH** for gas fees
+
+### Step-by-Step Setup
+
+#### 1. Get CDP API Credentials
+1. Visit [Coinbase Developer Platform](https://portal.cdp.coinbase.com/)
+2. Create a new project
+3. Generate API key pair:
+   - **API Key ID** → Copy this value
+   - **Private Key** → Download and copy the private key
+
+#### 2. Configure Environment
+```bash
+# Copy environment template
+cp .env.example .env
+
+# Edit .env file with your CDP credentials
+CDP_API_KEY_ID=your_api_key_id_here
+CDP_PRIVATE_KEY=your_private_key_here
+
+# Optional: Configure limits
+MAX_DAILY_SPEND_USD=1000.0
+MAX_GAS_PERCENTAGE=1.0
+```
+
+#### 3. Launch Application
+```bash
+# Install dependencies including CDP SDK
+poetry install --with live
+
+# Run Streamlit app
+streamlit run dca_backtester/web_app.py
+```
+
+#### 4. Create and Fund CDP Wallet
+
+1. **Navigate to "Live Execution" tab**
+2. **Verify network status** - should show "✅ Base Sepolia"
+3. **Create CDP wallet** (done automatically when executing first DCA)
+4. **Fund your wallet:**
+
+**Option A: Use Faucets**
+```bash
+# Get Base Sepolia ETH from official faucet
+# Visit: https://www.coinbase.com/faucets/base-ethereum-sepolia-faucet
+# Enter your CDP wallet address (displayed in UI)
+
+# Get test USDC (if available from Base ecosystem faucets)
+```
+
+**Option B: Bridge from other testnets**
+```bash
+# Bridge from Ethereum Sepolia to Base Sepolia
+# Use official Base bridge for testnet tokens
+```
+
+**Option C: Manual funding via external wallet**
+```bash
+# If you have an existing Base Sepolia wallet with funds:
+# 1. Connect external wallet using "Manual Connection" option
+# 2. Use that wallet for DCA instead of creating new CDP wallet
+```
+
+#### 5. Execute DCA Strategy
+
+1. **Connect wallet** - either CDP-generated or external
+2. **Configure DCA plan:**
+   - Target asset: ETH, BTC, or USDC
+   - Investment amount: $10-$1000 per transaction
+   - Risk limits: Gas percentage and daily spend
+3. **Execute DCA purchase:**
+   - Click "▶️ Execute DCA Buy"
+   - Monitor real transaction on [Base Sepolia Explorer](https://sepolia.basescan.org/)
+   - View transaction hash and gas costs
+
+### 🛡️ Safety Features
+
+The app includes comprehensive safety measures for live execution:
+
+- **Gas Protection**: Max 1% of transaction value for gas fees
+- **Spend Limits**: 24-hour rolling limit (default $1000)
+- **Network Validation**: Ensures you're on Base Sepolia (Chain ID: 84532)
+- **Balance Checks**: Verifies sufficient funds before execution
+- **Transaction Retry**: Automatic retry logic for failed transactions
+
+### 🔍 Monitoring and Debugging
+
+#### View Transaction Details
+```bash
+# Check transaction on Base Sepolia Explorer
+https://sepolia.basescan.org/tx/YOUR_TX_HASH
+
+# Monitor wallet balance
+https://sepolia.basescan.org/address/YOUR_WALLET_ADDRESS
+```
+
+#### Debug Connection Issues
+```bash
+# Test RPC connection
+curl -X POST https://sepolia.base.org \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}'
+
+# Should return: {"jsonrpc":"2.0","id":1,"result":"0x14a34"} (84532 in decimal)
+```
+
+#### Common Issues and Solutions
+
+**"Network connection failed"**
+- Check internet connection
+- Verify Base Sepolia RPC is accessible
+- Try restarting the app
+
+**"Insufficient balance"**
+- Fund wallet with Base Sepolia ETH for gas
+- Ensure USDC balance for DCA purchases
+- Check balance on Block Explorer
+
+**"Gas limit exceeded"**
+- Wait for lower network congestion
+- Increase max gas percentage in settings
+- Reduce transaction amount
 
 ### Quick Start
-1. Get Base Sepolia testnet ETH from [Base Faucet](https://www.coinbase.com/faucets/base-ethereum-sepolia-faucet)
-2. Obtain CDP API keys from Coinbase Developer Platform
-3. Configure `.env` file with your credentials
-4. Launch the app and navigate to "Live Execution" tab
+1. Get CDP API keys from Coinbase Developer Platform
+2. Configure `.env` file with your credentials  
+3. Launch app: `streamlit run dca_backtester/web_app.py`
+4. Navigate to "Live Execution" tab
+5. Fund CDP wallet with Base Sepolia ETH
+6. Configure and execute DCA strategy
 
 ## Live Demo
 
