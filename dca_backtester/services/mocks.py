@@ -12,6 +12,7 @@ from ..exceptions import (
     SpendLimitExceededError,
     InsufficientBalanceError
 )
+from ..client.cryptocompare import CryptoCompareClient
 
 
 class MockBaseAgentService:
@@ -72,12 +73,27 @@ class MockBaseAgentService:
         # Track spending
         self.spend_tracker.append((datetime.now(), amount_usd))
         
+        # Get real price from CryptoCompare
+        try:
+            cryptocompare = CryptoCompareClient(api_key=self.settings.cryptocompare_api_key)
+            now = datetime.utcnow()
+            # Fetch prices for the last 3 days
+            prices = cryptocompare.get_historical_prices(plan.symbol, (now - timedelta(days=3)).strftime('%Y-%m-%d'), now.strftime('%Y-%m-%d'))
+            # Find the price closest to now
+            if prices:
+                price = min(prices, key=lambda p: abs((p.date - now).total_seconds())).price
+            else:
+                price = 2500.0
+        except Exception:
+            price = 2500.0
+        
         # Generate mock transaction
         return TransactionReceipt(
             tx_hash=f"0x{''.join(random.choices('0123456789abcdef', k=64))}",
             status="success",
             gas_used=21000,
-            gas_cost_usd=gas_cost_usd
+            gas_cost_usd=gas_cost_usd,
+            price=price
         )
         
     async def check_balances(self, wallet_address: str) -> Dict[str, float]:

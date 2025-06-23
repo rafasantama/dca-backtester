@@ -91,3 +91,12 @@ class CryptoCompareClient:
             logger.info(f"Price range: ${min(p.price for p in price_points):,.2f} - ${max(p.price for p in price_points):,.2f}")
         
         return price_points 
+
+    def get_current_price(self, symbol: str) -> float:
+        """Get the most recent closing price for a symbol in USD."""
+        today = datetime.utcnow().date()
+        yesterday = today - timedelta(days=2)  # Use 2 days back to ensure data is available
+        prices = self.get_historical_prices(symbol, yesterday.isoformat(), today.isoformat())
+        if prices:
+            return prices[-1].price
+        raise Exception(f"No price data available for {symbol}") 

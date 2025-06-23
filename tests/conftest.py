@@ -57,7 +57,8 @@ def mock_transaction_receipt():
         tx_hash="0x1234567890123456789012345678901234567890123456789012345678901234",
         status="success",
         gas_used=150000,
-        gas_cost_usd=2.50
+        gas_cost_usd=2.50,
+        price=2500.0
     )
 
 

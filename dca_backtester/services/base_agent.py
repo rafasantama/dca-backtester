@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from abc import ABC, abstractmethod
 import asyncio
 import logging
+from dataclasses import dataclass
 
 from tenacity import retry, stop_after_attempt, wait_exponential, RetryError
 
@@ -19,6 +20,7 @@ from ..exceptions import (
     InsufficientBalanceError,
     TransactionFailedError
 )
+from ..client.cryptocompare import CryptoCompareClient
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -179,11 +181,15 @@ class BaseAgentService(BaseAgentServiceInterface):
                     f"Insufficient USDC balance: ${funding_balance:.2f} < ${amount_usd:.2f}"
                 )
                 
+            # Fetch real price from CryptoCompare
+            cryptocompare = CryptoCompareClient(api_key=self.settings.cryptocompare_api_key)
+            price = cryptocompare.get_current_price(plan.symbol)
+            
             # Execute the trade (simplified for testnet)
             # In a real implementation, this would use CDP's trade functionality
             try:
                 # Create a mock trade for now - this would be replaced with actual CDP trade
-                trade_result = await self._execute_mock_trade(wallet, plan, amount_usd)
+                trade_result = await self._execute_mock_trade(wallet, plan, amount_usd, price)
                 
                 # Record successful spend
                 self.spend_tracker.record_spend(amount_usd)
@@ -192,7 +198,8 @@ class BaseAgentService(BaseAgentServiceInterface):
                     tx_hash=trade_result["tx_hash"],
                     status="success",
                     gas_used=trade_result["gas_used"],
-                    gas_cost_usd=estimated_gas_cost_usd
+                    gas_cost_usd=estimated_gas_cost_usd,
+                    price=price
                 )
                 
             except Exception as trade_error:
@@ -307,7 +314,7 @@ class BaseAgentService(BaseAgentServiceInterface):
         except Exception as e:
             raise NetworkError(f"Failed to get network status: {str(e)}")
             
-    async def _execute_mock_trade(self, wallet, plan: TestnetDCAPlan, amount_usd: float) -> Dict[str, Any]:
+    async def _execute_mock_trade(self, wallet, plan: TestnetDCAPlan, amount_usd: float, price: float) -> Dict[str, Any]:
         """Execute a mock trade for testing purposes."""
         # This is a placeholder for actual CDP trade execution
         # In reality, this would use wallet.trade() or similar CDP functionality
@@ -326,5 +333,15 @@ class BaseAgentService(BaseAgentServiceInterface):
             "gas_used": random.randint(150000, 200000),
             "amount_usd": amount_usd,
             "target_asset": plan.symbol,
-            "timestamp": int(time.time())
+            "timestamp": int(time.time()),
+            "price": price
         }
+
+@dataclass
+class TransactionReceipt:
+    """Structured transaction result."""
+    tx_hash: str
+    status: str
+    gas_used: int
+    gas_cost_usd: float
+    price: float

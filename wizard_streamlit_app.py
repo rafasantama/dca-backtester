@@ -1,15 +1,30 @@
-"""Main entry point for the Wizard Streamlit application."""
+#!/usr/bin/env python3
+"""
+Entry point for the DCA Backtester Wizard with Automated Execution
+"""
+
 import sys
 import os
 
-# Get the absolute path to the venv's site-packages directory
-# and add it to the system path. This is a robust way to ensure
-# all installed packages are discoverable.
-venv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "venv", "lib", "python3.13", "site-packages")
-if venv_path not in sys.path:
-    sys.path.insert(0, venv_path)
+# Add the project root to the Python path
+project_root = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, project_root)
 
-from dca_backtester.wizard_app import app
-
-if __name__ == "__main__":
-    app() 
+try:
+    from dca_backtester.wizard_app import main
+    
+    if __name__ == "__main__":
+        main()
+        
+except ImportError as e:
+    print(f"Import error: {e}")
+    print("Trying alternative import...")
+    
+    # Alternative approach - import the module directly
+    import dca_backtester.wizard_app as wizard_app
+    
+    if hasattr(wizard_app, 'main'):
+        wizard_app.main()
+    else:
+        print("Could not find main function in wizard_app")
+        print("Available functions:", [f for f in dir(wizard_app) if not f.startswith('_')]) 

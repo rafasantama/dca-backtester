@@ -65,6 +65,7 @@ class TransactionReceipt:
     status: str
     gas_used: int
     gas_cost_usd: float
+    price: float
 
 
 class TestnetDCAPlan(DCAPlan):
