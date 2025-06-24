@@ -42,6 +42,24 @@ Thumbs.db
 .coverage
 htmlcov/
 
+# Environment files (CRITICAL - Contains API keys and secrets)
+.env
+.env.local
+.env.production
+.env.staging
+.env.test
+*.env
+
+# DCA Backtester specific
+wizard_state.json
+*.log
+.streamlit/
+
+# CDP AgentKit sensitive data
+cdp_credentials.json
+wallet_data.json
+private_keys/
+
 # Poetry
 poetry.lock
 

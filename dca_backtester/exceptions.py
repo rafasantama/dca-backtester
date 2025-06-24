@@ -32,4 +32,41 @@ class ConfigurationError(DCAError):
 
 class BacktestError(Exception):
     """Base exception for backtesting errors."""
+    pass
+
+
+# CDP AgentKit specific exceptions
+
+class AgentError(DCAError):
+    """Base exception for agent operations."""
+    pass
+
+
+class WalletConnectionError(AgentError):
+    """Raised when wallet connection fails."""
+    pass
+
+
+class NetworkError(AgentError):
+    """Raised when network operations fail."""
+    pass
+
+
+class GasLimitExceededError(AgentError):
+    """Raised when gas cost exceeds configured limits."""
+    pass
+
+
+class SpendLimitExceededError(AgentError):
+    """Raised when daily spend limit is exceeded."""
+    pass
+
+
+class InsufficientBalanceError(AgentError):
+    """Raised when wallet has insufficient balance."""
+    pass
+
+
+class TransactionFailedError(AgentError):
+    """Raised when transaction execution fails."""
     pass 
