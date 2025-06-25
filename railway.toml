@@ -1,0 +1,9 @@
+[deploy]
+startCommand = "streamlit run wizard_streamlit_app.py --server.port=$PORT --server.address=0.0.0.0"
+healthcheckPath = "/"
+healthcheckTimeout = 300
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+[env]
+PYTHON_VERSION = "3.9" 
