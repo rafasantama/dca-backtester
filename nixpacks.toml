@@ -1,11 +1,11 @@
 [phases.setup]
-nixPkgs = ["python310", "python310Packages.pip"]
+nixPkgs = ["python310", "poetry"]
 
 [phases.install]
-cmds = ["pip install -r requirements.txt"]
+cmds = ["poetry install --no-dev"]
 
 [phases.build]
 cmds = ["echo 'Build completed'"]
 
 [start]
-cmd = "streamlit run wizard_streamlit_app.py --server.port=$PORT --server.address=0.0.0.0" 
+cmd = "poetry run streamlit run wizard_streamlit_app.py --server.port=$PORT --server.address=0.0.0.0" 
