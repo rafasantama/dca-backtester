@@ -1,3 +1,7 @@
+# Build system dependencies (fix for Python 3.9 compatibility)
+setuptools<68
+importlib_metadata<5
+
 streamlit==1.32.0
 pandas==2.2.1
 plotly==5.19.0
@@ -8,8 +12,8 @@ requests==2.31.0
 openai>=1.90.0
 python-dotenv==1.0.1
 tenacity>=8.2.0
-web3>=6.15.0
-eth-account>=0.8.0
+web3>=7.2.0
+eth-account>=0.13.3
 
 # Optional: CDP AgentKit (for live execution)
 # Uncomment the line below if you want live execution capabilities

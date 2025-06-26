@@ -7,20 +7,20 @@ readme = "README.md"
 packages = [{include = "dca_backtester"}]
 
 [tool.poetry.dependencies]
-python = ">=3.9,<3.9.7 || >3.9.7,<4.0"
+python = ">=3.10,<4.0"
 pydantic = "^2.6.1"
 pydantic-settings = "^2.0.0"
 pycoingecko = "^3.1.0"
 streamlit = "^1.32.0"
 plotly = "^5.18.0"
 pandas = "^2.2.0"
-web3 = "^6.15.0"
-eth-account = "^0.8.0"
+web3 = "^7.2.0"
+eth-account = "^0.13.3"
 tenacity = "^8.2.0"
 
 [tool.poetry.group.live.dependencies]
-# Live execution extras (Phase 7.2)
-cdp-sdk = "~0.0.4"
+# Live execution extras (Phase 7.2) - requires Python 3.10+
+cdp-sdk = {version = "~0.0.4", python = ">=3.10"}
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"
@@ -35,7 +35,11 @@ pytest-mock = "^3.12.0"
 pytest-cov = "^4.1.0"
 
 [build-system]
-requires = ["poetry-core"]
+requires = [
+    "poetry-core",
+    "setuptools<68",
+    "importlib_metadata<5; python_version<'3.10'"
+]
 build-backend = "poetry.core.masonry.api"
 
 [tool.black]
@@ -49,7 +53,7 @@ line_length = 100
 multi_line_output = 3
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
@@ -57,6 +61,6 @@ disallow_incomplete_defs = true
 
 [tool.ruff]
 line-length = 100
-target-version = "py39"
+target-version = "py310"
 select = ["E", "F", "B", "I"]
 ignore = [] 
