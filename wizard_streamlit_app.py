@@ -6,6 +6,9 @@ Entry point for the DCA Backtester Wizard with Automated Execution
 import sys
 import os
 
+# Debug print for environment variable
+print("DEBUG: CRYPTOCOMPARE_API_KEY =", os.getenv("CRYPTOCOMPARE_API_KEY"))
+
 # Add the project root to the Python path
 project_root = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, project_root)
